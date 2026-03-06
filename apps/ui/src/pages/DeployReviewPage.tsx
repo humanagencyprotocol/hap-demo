@@ -1,60 +1,187 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { spClient, type GitHubPullDetail } from '../lib/sp-client';
+import { spClient, type GitHubRepo, type GitHubPull, type GitHubPullDetail, type GitHubPullFile } from '../lib/sp-client';
 import { StepIndicator } from '../components/StepIndicator';
 import { GroupSelector } from '../components/GroupSelector';
 import { DomainBadge } from '../components/DomainBadge';
+import DiffViewer from '../components/DiffViewer';
+
+function getStatusColor(status: string): string {
+  switch (status) {
+    case 'added': return '#1a7f37';
+    case 'removed': return '#cf222e';
+    case 'renamed': return '#9a6700';
+    default: return 'var(--text-secondary)';
+  }
+}
 
 export function DeployReviewPage() {
   const { activeGroup, activeDomain } = useAuth();
-  const [prRef, setPrRef] = useState('');
+
+  // GitHub config state
+  const [ghConfigured, setGhConfigured] = useState(false);
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [reposLoading, setReposLoading] = useState(false);
+
+  // Repo & PR selection
+  const [selectedRepo, setSelectedRepo] = useState('');
+  const [pulls, setPulls] = useState<GitHubPull[]>([]);
+  const [pullsLoading, setPullsLoading] = useState(false);
+
+  // Manual input fallback
+  const [manualRef, setManualRef] = useState('');
+
+  // Loaded PR state
   const [prData, setPrData] = useState<GitHubPullDetail | null>(null);
+  const [prFiles, setPrFiles] = useState<GitHubPullFile[]>([]);
   const [prLoading, setPrLoading] = useState(false);
   const [prError, setPrError] = useState('');
-  const [deployStep, setDeployStep] = useState(1);
+
+  // File accordion expand state
+  const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
+
+  // Gate wizard state
+  const [deployStep, setDeployStep] = useState(0); // 0 = not started
   const [gateContent, setGateContent] = useState({ problem: '', objective: '', tradeoffs: '' });
 
-  // GitHub repos/PRs for selection
-  const [repos, setRepos] = useState<Array<{ fullName: string; description: string | null }>>([]);
-  const [ghConfigured, setGhConfigured] = useState(false);
+  // AI assist state
+  const [aiLoading, setAiLoading] = useState<string | null>(null);
+  const [aiResult, setAiResult] = useState<Record<string, { suggestion?: string; error?: string }>>({});
 
   const GATE_KEYS = ['problem', 'objective', 'tradeoffs'] as const;
-  const gateStep = deployStep - 3; // 3->0=problem, 4->1=objective, 5->2=tradeoffs
+
+  // Track the owner/repo used to load the current PR (for display in review)
+  const [prRef, setPrRef] = useState('');
 
   // Check GitHub config on mount
   useEffect(() => {
     spClient.getCredential('github-pat').then(status => {
       setGhConfigured(status.configured);
       if (status.configured) {
-        spClient.getGitHubRepos().then(r => setRepos(r)).catch(() => {});
+        setReposLoading(true);
+        spClient.getGitHubRepos()
+          .then(r => setRepos(r))
+          .catch(() => {})
+          .finally(() => setReposLoading(false));
       }
     }).catch(() => {});
   }, []);
 
-  const loadPR = useCallback(async () => {
-    if (!prRef.trim()) return;
-
-    // Parse owner/repo#number
-    const match = prRef.match(/^([^/]+)\/([^#]+)#(\d+)$/);
-    if (!match) {
-      setPrError('Format: owner/repo#number');
+  // Load open PRs when repo is selected
+  useEffect(() => {
+    if (!selectedRepo) {
+      setPulls([]);
       return;
     }
+    const [owner, repo] = selectedRepo.split('/');
+    if (!owner || !repo) return;
 
-    const [, owner, repo, number] = match;
+    setPullsLoading(true);
+    setPulls([]);
+    spClient.getGitHubPulls(owner, repo)
+      .then(p => setPulls(p))
+      .catch(() => {})
+      .finally(() => setPullsLoading(false));
+  }, [selectedRepo]);
+
+  // Parse PR reference: owner/repo#number or full GitHub URL
+  const parsePrRef = useCallback((input: string): { owner: string; repo: string; number: number } | null => {
+    // Try owner/repo#number
+    const shortMatch = input.match(/^([^/]+)\/([^#]+)#(\d+)$/);
+    if (shortMatch) {
+      return { owner: shortMatch[1], repo: shortMatch[2], number: parseInt(shortMatch[3]) };
+    }
+    // Try GitHub URL: https://github.com/owner/repo/pull/123
+    const urlMatch = input.match(/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
+    if (urlMatch) {
+      return { owner: urlMatch[1], repo: urlMatch[2], number: parseInt(urlMatch[3]) };
+    }
+    return null;
+  }, []);
+
+  // Load a specific PR
+  const loadPR = useCallback(async (owner: string, repo: string, number: number) => {
     setPrLoading(true);
     setPrError('');
     setPrData(null);
+    setPrFiles([]);
+    setExpandedFiles(new Set());
+    setDeployStep(0);
+    setGateContent({ problem: '', objective: '', tradeoffs: '' });
+    setAiResult({});
+    setPrRef(`${owner}/${repo}#${number}`);
 
     try {
-      const data = await spClient.getGitHubPull(owner, repo, parseInt(number));
-      setPrData(data);
+      const [detail, files] = await Promise.all([
+        spClient.getGitHubPull(owner, repo, number),
+        spClient.getGitHubPullFiles(owner, repo, number),
+      ]);
+      setPrData(detail);
+      setPrFiles(files);
     } catch (err) {
       setPrError(err instanceof Error ? err.message : 'Failed to load PR');
     } finally {
       setPrLoading(false);
     }
-  }, [prRef]);
+  }, []);
+
+  // Handle clicking a PR card
+  const handlePRClick = useCallback((pr: GitHubPull) => {
+    if (!selectedRepo) return;
+    const [owner, repo] = selectedRepo.split('/');
+    loadPR(owner, repo, pr.number);
+  }, [selectedRepo, loadPR]);
+
+  // Handle manual PR load
+  const handleManualLoad = useCallback(() => {
+    const parsed = parsePrRef(manualRef.trim());
+    if (!parsed) {
+      setPrError('Format: owner/repo#number or GitHub PR URL');
+      return;
+    }
+    loadPR(parsed.owner, parsed.repo, parsed.number);
+  }, [manualRef, parsePrRef, loadPR]);
+
+  // Toggle file expansion
+  const toggleFile = useCallback((path: string) => {
+    setExpandedFiles(prev => {
+      const next = new Set(prev);
+      if (next.has(path)) next.delete(path);
+      else next.add(path);
+      return next;
+    });
+  }, []);
+
+  // AI assist handler
+  const handleAiAssist = useCallback(async (gate: 'problem' | 'objective' | 'tradeoffs') => {
+    if (!prData) return;
+    setAiLoading(gate);
+    setAiResult(prev => ({ ...prev, [gate]: {} }));
+
+    const fileSummary = prData.files
+      .map(f => `${f.status} ${f.path} (+${f.additions} -${f.deletions})`)
+      .join('\n');
+
+    const result = await spClient.aiAssist({
+      gate,
+      currentText: gateContent[gate],
+      context: {
+        prTitle: prData.title,
+        prBody: prData.body ?? undefined,
+        prBranch: `${prData.branch} -> ${prData.base}`,
+        prFileSummary: fileSummary,
+      },
+    });
+
+    setAiResult(prev => ({
+      ...prev,
+      [gate]: result.success ? { suggestion: result.suggestion } : { error: result.error || 'AI request failed' },
+    }));
+    setAiLoading(null);
+  }, [prData, gateContent]);
+
+  // Gate step indices: 1=Context, 2=Frame, 3=Problem, 4=Objective, 5=Tradeoffs, 6=Review
+  const gateStep = deployStep - 3; // maps step 3->0(problem), 4->1(objective), 5->2(tradeoffs)
 
   return (
     <>
@@ -103,9 +230,9 @@ export function DeployReviewPage() {
         </div>
       </details>
 
-      {/* PR Loader */}
+      {/* PR Selection Card */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
-        <h3 className="card-title" style={{ marginBottom: '0.5rem' }}>Load Pull Request</h3>
+        <h3 className="card-title" style={{ marginBottom: '0.75rem' }}>Select Pull Request</h3>
 
         {!ghConfigured && (
           <div className="status-banner status-banner-warn" style={{ marginBottom: '0.75rem', fontSize: '0.8rem' }}>
@@ -116,51 +243,212 @@ export function DeployReviewPage() {
           </div>
         )}
 
-        {repos.length > 0 && (
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>
-            Repos: {repos.slice(0, 5).map(r => r.fullName).join(', ')}{repos.length > 5 ? '...' : ''}
+        {/* Repo selector */}
+        {ghConfigured && (
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label className="form-label" style={{ fontSize: '0.8rem' }}>Repository</label>
+            <select
+              className="form-input"
+              value={selectedRepo}
+              onChange={e => setSelectedRepo(e.target.value)}
+              style={{ fontSize: '0.85rem' }}
+              disabled={reposLoading}
+            >
+              <option value="">{reposLoading ? 'Loading repos...' : 'Select a repository'}</option>
+              {repos.map(r => (
+                <option key={r.fullName} value={r.fullName}>
+                  {r.fullName}{r.private ? ' (private)' : ''}
+                </option>
+              ))}
+            </select>
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-          <input
-            className="form-input"
-            value={prRef}
-            onChange={e => setPrRef(e.target.value)}
-            placeholder="owner/repo#number"
-            style={{ flex: 1, fontFamily: "'SF Mono', Monaco, monospace", fontSize: '0.85rem' }}
-          />
-          <button
-            className="btn btn-primary"
-            onClick={loadPR}
-            disabled={prLoading || !ghConfigured}
-          >
-            {prLoading ? 'Loading...' : 'Load'}
-          </button>
+        {/* Open PRs list */}
+        {selectedRepo && (
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+              Open Pull Requests
+            </div>
+            {pullsLoading && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', padding: '0.5rem 0' }}>
+                Loading pull requests...
+              </div>
+            )}
+            {!pullsLoading && pulls.length === 0 && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', padding: '0.5rem 0' }}>
+                No open pull requests found.
+              </div>
+            )}
+            {!pullsLoading && pulls.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                {pulls.map(pr => (
+                  <button
+                    key={pr.number}
+                    onClick={() => handlePRClick(pr)}
+                    disabled={prLoading}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.625rem 0.75rem',
+                      background: prData?.number === pr.number ? 'var(--accent-bg)' : 'var(--bg-main)',
+                      border: `1px solid ${prData?.number === pr.number ? 'var(--accent)' : 'var(--border)'}`,
+                      borderRadius: '0.375rem',
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      width: '100%',
+                      fontSize: '0.85rem',
+                      transition: 'border-color 0.15s',
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-tertiary)', fontWeight: 600, fontSize: '0.8rem', flexShrink: 0 }}>
+                      #{pr.number}
+                    </span>
+                    <span style={{ fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pr.title}
+                    </span>
+                    <code style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                      {pr.branch}
+                    </code>
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                      {pr.author}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Manual input */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', marginBottom: '0.375rem' }}>
+            Or enter manually
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input
+              className="form-input"
+              value={manualRef}
+              onChange={e => setManualRef(e.target.value)}
+              placeholder="owner/repo#number or GitHub PR URL"
+              onKeyDown={e => e.key === 'Enter' && handleManualLoad()}
+              style={{ flex: 1, fontFamily: "'SF Mono', Monaco, monospace", fontSize: '0.85rem' }}
+            />
+            <button
+              className="btn btn-primary"
+              onClick={handleManualLoad}
+              disabled={prLoading || !ghConfigured}
+            >
+              {prLoading ? 'Loading...' : 'Load'}
+            </button>
+          </div>
         </div>
 
         {prError && (
-          <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>{prError}</div>
-        )}
-
-        {prData && (
-          <div style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '0.5rem', padding: '1rem' }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.375rem' }}>
-              <span style={{ fontWeight: 600 }}>{prData.title}</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>#{prData.number}</span>
-            </div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-              <code style={{ fontSize: '0.75rem' }}>{prData.branch}</code>
-              {' \u2192 '}
-              <code style={{ fontSize: '0.75rem' }}>{prData.base}</code>
-              {' \u00B7 '}by {prData.author} {'\u00B7'} {prData.filesChanged} files changed {'\u00B7'} +{prData.additions} -{prData.deletions}
-            </div>
-          </div>
+          <div className="alert alert-error" style={{ marginTop: '0.75rem' }}>{prError}</div>
         )}
       </div>
 
-      {/* Deploy Gate Wizard */}
+      {/* PR Details + Files */}
       {prData && (
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          {/* PR header */}
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.375rem' }}>
+              <span style={{ fontWeight: 600, fontSize: '1rem' }}>{prData.title}</span>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-tertiary)' }}>#{prData.number}</span>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', flexWrap: 'wrap', gap: '0.25rem', alignItems: 'center' }}>
+              <code style={{ fontSize: '0.75rem' }}>{prData.branch}</code>
+              <span>{'\u2192'}</span>
+              <code style={{ fontSize: '0.75rem' }}>{prData.base}</code>
+              <span>{'\u00B7'}</span>
+              <span>by {prData.author}</span>
+              <span>{'\u00B7'}</span>
+              <span>{prData.filesChanged} files</span>
+              <span>{'\u00B7'}</span>
+              <span style={{ color: '#1a7f37' }}>+{prData.additions}</span>
+              <span style={{ color: '#cf222e' }}>-{prData.deletions}</span>
+            </div>
+            {prData.body && (
+              <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5, maxHeight: '120px', overflow: 'auto' }}>
+                {prData.body}
+              </div>
+            )}
+          </div>
+
+          {/* Changed files with diffs */}
+          <div>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+              Changed Files ({prData.filesChanged})
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {prFiles.map(f => {
+                const isExpanded = expandedFiles.has(f.path);
+                return (
+                  <div key={f.path}>
+                    <button
+                      onClick={() => toggleFile(f.path)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        width: '100%',
+                        padding: '0.375rem 0.5rem',
+                        background: 'none',
+                        border: '1px solid var(--border)',
+                        borderRadius: '0.25rem',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: '0.8rem',
+                      }}
+                    >
+                      <span style={{ fontSize: '0.65rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                        {isExpanded ? '\u25BC' : '\u25B6'}
+                      </span>
+                      <span style={{ color: getStatusColor(f.status), fontSize: '0.7rem', fontWeight: 600, flexShrink: 0, textTransform: 'uppercase' }}>
+                        {f.status.charAt(0)}
+                      </span>
+                      <code style={{ flex: 1, fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {f.path}
+                      </code>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', flexShrink: 0 }}>
+                        <span style={{ color: '#1a7f37' }}>+{f.additions}</span>{' '}
+                        <span style={{ color: '#cf222e' }}>-{f.deletions}</span>
+                      </span>
+                    </button>
+                    {isExpanded && f.patch && (
+                      <DiffViewer patch={f.patch} filename={f.path} status={f.status} />
+                    )}
+                    {isExpanded && !f.patch && (
+                      <div style={{ padding: '0.5rem 0.75rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', fontStyle: 'italic' }}>
+                        Binary file or diff too large to display
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Start gate review button */}
+          {deployStep === 0 && (
+            <div style={{ marginTop: '1.25rem' }}>
+              <button
+                className="btn btn-primary btn-lg"
+                style={{ width: '100%' }}
+                onClick={() => setDeployStep(1)}
+              >
+                Start Gate Review
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deploy Gate Wizard */}
+      {prData && deployStep >= 1 && (
         <div className="card">
           <StepIndicator currentStep={deployStep} />
 
@@ -223,7 +511,7 @@ export function DeployReviewPage() {
             </>
           )}
 
-          {/* Steps 3-5: Gate questions */}
+          {/* Steps 3-5: Gate questions with AI assist */}
           {deployStep >= 3 && deployStep <= 5 && (
             <>
               <h3 className="card-title" style={{ marginBottom: '0.25rem' }}>
@@ -242,8 +530,47 @@ export function DeployReviewPage() {
                   style={{ minHeight: '140px' }}
                 />
               </div>
-              <div className="char-counter">{gateContent[GATE_KEYS[gateStep]].length} / 2000</div>
-              <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div className="char-counter">{gateContent[GATE_KEYS[gateStep]].length} / 2000</div>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: '0.8rem', padding: '0.25rem 0.75rem' }}
+                  onClick={() => handleAiAssist(GATE_KEYS[gateStep])}
+                  disabled={aiLoading === GATE_KEYS[gateStep]}
+                >
+                  {aiLoading === GATE_KEYS[gateStep] ? 'Thinking...' : 'Ask AI'}
+                </button>
+              </div>
+
+              {/* AI result */}
+              {aiResult[GATE_KEYS[gateStep]]?.suggestion && (
+                <div style={{
+                  background: 'var(--bg-main)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '0.5rem',
+                  padding: '0.75rem',
+                  marginBottom: '1rem',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.6,
+                }}>
+                  <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-tertiary)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    AI Advisory
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', whiteSpace: 'pre-wrap' }}>
+                    {aiResult[GATE_KEYS[gateStep]].suggestion}
+                  </div>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.5rem', fontStyle: 'italic' }}>
+                    AI surfaces reality. You supply intent.
+                  </div>
+                </div>
+              )}
+              {aiResult[GATE_KEYS[gateStep]]?.error && (
+                <div className="alert alert-error" style={{ marginBottom: '1rem', fontSize: '0.8rem' }}>
+                  AI: {aiResult[GATE_KEYS[gateStep]].error}
+                </div>
+              )}
+
+              <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-ghost" onClick={() => setDeployStep(deployStep - 1)}>Back</button>
                 <button
                   className="btn btn-primary"

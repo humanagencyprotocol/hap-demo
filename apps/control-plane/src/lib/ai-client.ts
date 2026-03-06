@@ -45,6 +45,10 @@ export interface AIAssistRequest {
     profileId?: string;
     path?: string;
     bounds?: string;
+    prTitle?: string;
+    prBody?: string;
+    prBranch?: string;
+    prFileSummary?: string;
   };
 }
 
@@ -110,6 +114,10 @@ export async function getAIAssistance(
   if (request.context?.profileId) contextParts.push(`Profile: ${request.context.profileId}`);
   if (request.context?.path) contextParts.push(`Path: ${request.context.path}`);
   if (request.context?.bounds) contextParts.push(`Bounds: ${request.context.bounds}`);
+  if (request.context?.prTitle) contextParts.push(`PR Title: ${request.context.prTitle}`);
+  if (request.context?.prBody) contextParts.push(`PR Description: ${request.context.prBody}`);
+  if (request.context?.prBranch) contextParts.push(`Branch: ${request.context.prBranch}`);
+  if (request.context?.prFileSummary) contextParts.push(`Changed Files:\n${request.context.prFileSummary}`);
 
   const userPrompt = [
     contextParts.length > 0 ? `Context:\n${contextParts.join('\n')}` : '',

@@ -97,7 +97,17 @@ export function createVaultRouter(vault: Vault): Router {
       res.json({ configured: false });
       return;
     }
-    res.json({ configured: true, fieldNames: Object.keys(cred) });
+    // Return non-secret fields in clear, mask secret-looking ones
+    const SECRET_KEYS = ['apiKey', 'apikey', 'api_key', 'pat', 'token', 'secret', 'password', 'webhookSecret'];
+    const fields: Record<string, string> = {};
+    for (const [key, value] of Object.entries(cred)) {
+      if (SECRET_KEYS.includes(key)) {
+        fields[key] = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
+      } else {
+        fields[key] = value;
+      }
+    }
+    res.json({ configured: true, fieldNames: Object.keys(cred), fields });
   });
 
   /**

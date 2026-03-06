@@ -109,6 +109,14 @@ export interface GitHubPullDetail extends GitHubPull {
   files: Array<{ path: string; additions: number; deletions: number; status: string }>;
 }
 
+export interface GitHubPullFile {
+  path: string;
+  additions: number;
+  deletions: number;
+  status: string;
+  patch: string | null;
+}
+
 class SPClient {
   private apiKey: string | null = null;
 
@@ -318,7 +326,7 @@ class SPClient {
   async aiAssist(request: {
     gate: 'problem' | 'objective' | 'tradeoffs';
     currentText: string;
-    context?: { profileId?: string; path?: string; bounds?: string };
+    context?: { profileId?: string; path?: string; bounds?: string; prTitle?: string; prBody?: string; prBranch?: string; prFileSummary?: string };
   }): Promise<{ success: boolean; suggestion?: string; error?: string; disclaimer: string }> {
     const res = await this.fetch('/ai/assist', {
       method: 'POST',
@@ -366,6 +374,13 @@ class SPClient {
     const res = await this.fetch(`/github/pull?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&number=${number}`);
     if (!res.ok) throw new Error(`Failed to fetch PR: ${res.status}`);
     return res.json();
+  }
+
+  async getGitHubPullFiles(owner: string, repo: string, number: number): Promise<GitHubPullFile[]> {
+    const res = await this.fetch(`/github/pull-files?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}&number=${number}`);
+    if (!res.ok) throw new Error(`Failed to fetch PR files: ${res.status}`);
+    const data = await res.json();
+    return data.files;
   }
 }
 

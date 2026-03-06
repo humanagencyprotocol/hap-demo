@@ -164,5 +164,49 @@ export function createGitHubRouter(vault: Vault): Router {
     }
   });
 
+  /**
+   * GET /github/pull-files?owner=x&repo=y&number=n
+   * Returns PR files with patch (diff) data for DiffViewer.
+   */
+  router.get('/pull-files', async (req: Request, res: Response) => {
+    const { owner, repo, number } = req.query as { owner?: string; repo?: string; number?: string };
+    if (!owner || !repo || !number) {
+      res.status(400).json({ error: 'Missing owner, repo, or number query param' });
+      return;
+    }
+
+    const token = getToken();
+    if (!token) {
+      res.status(400).json({ error: 'GitHub PAT not configured' });
+      return;
+    }
+
+    try {
+      const ghRes = await ghFetch(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(number)}/files?per_page=100`,
+        token,
+      );
+      if (!ghRes.ok) throw new Error(`GitHub API: ${ghRes.status}`);
+
+      const files = await ghRes.json() as Array<{
+        filename: string; additions: number; deletions: number;
+        status: string; patch?: string;
+      }>;
+
+      res.json({
+        files: files.map(f => ({
+          path: f.filename,
+          additions: f.additions,
+          deletions: f.deletions,
+          status: f.status,
+          patch: f.patch ?? null,
+        })),
+      });
+    } catch (err) {
+      console.error('[GitHub] Error fetching PR files:', err);
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to fetch PR files' });
+    }
+  });
+
   return router;
 }

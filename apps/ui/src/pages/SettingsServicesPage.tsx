@@ -12,6 +12,7 @@ export function SettingsServicesPage() {
   const [loading, setLoading] = useState(true);
 
   // General tab state
+  const [aiPreset, setAiPreset] = useState('ollama');
   const [aiProvider, setAiProvider] = useState('ollama');
   const [aiEndpoint, setAiEndpoint] = useState('http://localhost:11434');
   const [aiModel, setAiModel] = useState('llama3.2');
@@ -54,6 +55,18 @@ export function SettingsServicesPage() {
       ]);
       setAiConfigured(aiStatus.configured);
       setGhConfigured(ghStatus.configured);
+      // Load stored non-secret AI config values
+      if (aiStatus.configured && aiStatus.fields) {
+        if (aiStatus.fields.provider) setAiProvider(aiStatus.fields.provider);
+        if (aiStatus.fields.endpoint) setAiEndpoint(aiStatus.fields.endpoint);
+        if (aiStatus.fields.model) setAiModel(aiStatus.fields.model);
+        // Derive preset from endpoint
+        const ep = aiStatus.fields.endpoint ?? '';
+        if (ep.includes('openai.com')) setAiPreset('openai');
+        else if (ep.includes('groq.com')) setAiPreset('groq');
+        else if (ep.includes('together.xyz')) setAiPreset('together');
+        else setAiPreset('ollama');
+      }
     } catch {
       // ignore
     }
@@ -65,6 +78,7 @@ export function SettingsServicesPage() {
   }, [loadServices, loadGeneralStatus]);
 
   const handleAiPresetChange = async (preset: string) => {
+    setAiPreset(preset);
     try {
       const data = await spClient.getAIPresets();
       const p = data.presets[preset];
@@ -101,12 +115,13 @@ export function SettingsServicesPage() {
     setAiTesting(true);
     setAiTestResult(null);
     try {
-      const result = await spClient.aiTest({
+      // If no new API key typed, send empty body so server uses stored config (with real key)
+      const result = await spClient.aiTest(aiApiKey ? {
         provider: aiProvider,
         endpoint: aiEndpoint,
         model: aiModel,
-        apiKey: aiApiKey || undefined,
-      });
+        apiKey: aiApiKey,
+      } : {});
       setAiTestResult(result.ok ? `OK: ${result.message}` : `Failed: ${result.message}`);
     } catch (e) {
       setAiTestResult(`Error: ${e instanceof Error ? e.message : 'Unknown'}`);
@@ -239,7 +254,7 @@ export function SettingsServicesPage() {
               <label className="form-label">Provider Preset</label>
               <select
                 className="form-input"
-                value={aiProvider === 'ollama' ? 'ollama' : ''}
+                value={aiPreset}
                 onChange={e => handleAiPresetChange(e.target.value)}
               >
                 <option value="ollama">Ollama (local)</option>
@@ -276,7 +291,7 @@ export function SettingsServicesPage() {
                 type="password"
                 value={aiApiKey}
                 onChange={e => setAiApiKey(e.target.value)}
-                placeholder="sk-... (not needed for Ollama)"
+                placeholder={aiConfigured ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'sk-... (not needed for Ollama)'}
               />
             </div>
 
@@ -303,6 +318,23 @@ export function SettingsServicesPage() {
               Personal access token for loading PRs in the deploy review flow. Encrypted in your vault.
             </p>
 
+            <details style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '1rem', cursor: 'pointer' }}>
+              <summary style={{ fontWeight: 500, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+                How to create a GitHub Personal Access Token
+              </summary>
+              <ol style={{ paddingLeft: '1.25rem', lineHeight: 1.7, marginTop: '0.5rem' }}>
+                <li>Go to <strong>GitHub.com</strong> &rarr; click your profile picture &rarr; <strong>Settings</strong></li>
+                <li>Scroll down in the left sidebar &rarr; <strong>Developer settings</strong></li>
+                <li>Click <strong>Personal access tokens</strong> &rarr; <strong>Fine-grained tokens</strong></li>
+                <li>Click <strong>Generate new token</strong></li>
+                <li>Give it a name (e.g. "HAP Demo") and set an expiration</li>
+                <li>Under <strong>Repository access</strong>, select the repos you want to review</li>
+                <li>Under <strong>Permissions</strong>, grant: <strong>Pull requests</strong> (Read) and <strong>Contents</strong> (Read)</li>
+                <li>Click <strong>Generate token</strong> and copy the <code>github_pat_...</code> value</li>
+                <li>Paste it below and click <strong>Save &amp; Encrypt</strong></li>
+              </ol>
+            </details>
+
             {ghConfigured && (
               <div className="status-banner status-banner-success" style={{ marginBottom: '1rem', fontSize: '0.8rem' }}>
                 <span className="status-banner-icon">{'\u2713'}</span>
@@ -317,7 +349,7 @@ export function SettingsServicesPage() {
                 type="password"
                 value={ghPat}
                 onChange={e => setGhPat(e.target.value)}
-                placeholder="ghp_..."
+                placeholder={ghConfigured ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'ghp_...'}
               />
             </div>
 

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@hap/core": "workspace:*",
+    "parse-diff": "^0.11.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^7.13.1"
