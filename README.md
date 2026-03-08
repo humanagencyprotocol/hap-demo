@@ -1,34 +1,32 @@
-# HAP Demo
+# HAP — Open Source Authorization Infrastructure for AI Agents
 
-A working implementation of the [Human Agency Protocol](https://humanagencyprotocol.org) — the infrastructure layer that ensures AI agents can only execute real-world actions within human-defined bounds.
+HAP is AI-native control infrastructure for agent operations. It places a cryptographic gate between AI agents and real-world tools — Stripe, GitHub, email, databases, and cloud infrastructure. Every action must fit human-defined bounds or it does not execute. Agents connect through a single MCP endpoint. Authorizations are cryptographically signed, time-limited, and fully auditable.
 
-This demo connects three services: a **React UI** where domain owners create time-limited, scope-bounded authorizations, a **Control Plane** that manages authentication and proxies requests, and an **MCP Server** where AI agents call tools that are enforced by a **Gatekeeper** at runtime. Every tool call is verified against cryptographically signed attestations before execution proceeds.
-
-**The core guarantee:** an agent authorized to make payments up to $100 in USD cannot make a $200 payment, pay in EUR, or act after the authorization expires. The Gatekeeper rejects it — no configuration, no trust, no override.
+This repository contains the open-source reference implementation of the [Human Agency Protocol](https://humanagencyprotocol.org). It connects to the Service Provider at [humanagencyprotocol.com](https://humanagencyprotocol.com) for attestation signing, domain verification, and audit trails. The team behind HAP runs its own AI-native company on this stack — dogfooding the protocol in production to prove that governed agent operations work at the scale of a real organization.
 
 ---
 
 ## How It Works
 
 ```
-Domain Owner (Browser)                    AI Agent (Claude, etc.)
+Human (Browser)                           AI Agent (Claude, etc.)
        │                                         │
        │  1. Create authorization                 │
        │  (bounds, gates, sign)                   │
        ▼                                         │
 ┌─────────────┐    proxy    ┌──────────────┐      │
-│  Control    │◄──────────►│  External SP  │      │
-│  Plane      │   /api/*   │              │      │
-│  port 3000  │            │  Signs with   │      │
-│             │            │  Ed25519 key  │      │
-│  • Auth     │            └──────────────┘      │
-│  • UI serve │                                   │
+│  Admin      │◄──────────►│  External SP  │      │
+│  :3000      │   /api/*   │              │      │
+│             │            │  Signs with   │      │
+│  • Auth     │            │  Ed25519 key  │      │
+│  • UI       │            └──────────────┘      │
+│  • Vault    │                                   │
 │  • Gate     │──── /internal/* ────┐             │
 │    content  │   (loopback only)   │             │
 └─────────────┘                     ▼             │
                             ┌──────────────┐      │
-                            │  MCP Server  │◄─────┘
-                            │  port 3030   │  2. Call tool
+                            │  MCP Gateway │◄─────┘
+                            │  :3030       │  2. Call tool
                             │              │  (make-payment,
                             │  • Gatekeeper│   send-email)
                             │  • Tools     │
@@ -39,7 +37,7 @@ Domain Owner (Browser)                    AI Agent (Claude, etc.)
 
 ### The Authorization Flow
 
-1. **Owner logs in** with an API key. The Control Plane exchanges it for a session with the external Service Provider.
+1. **Owner logs in** with an API key. The admin server exchanges it for a session with the external Service Provider.
 
 2. **Owner creates an authorization** through a 6-step gate wizard:
    - **Profile & Path** — Select what kind of action (payment, email) and scope (routine, large)
@@ -108,7 +106,7 @@ pnpm install && pnpm build
 ```
 
 ```bash
-# Terminal 1 — Control Plane (port 3000)
+# Terminal 1 — Admin server (port 3000)
 pnpm dev:control
 ```
 
@@ -118,7 +116,7 @@ pnpm dev:mcp
 ```
 
 ```bash
-# Terminal 3 — UI dev server (port 3002, proxies to Control Plane)
+# Terminal 3 — UI dev server (port 3002, proxies to admin server)
 pnpm dev:ui
 ```
 
@@ -178,30 +176,29 @@ Health check:     GET  http://localhost:3030/health
 Plaintext gate content (what you wrote in problem/objective/tradeoffs) **never leaves your infrastructure**:
 
 - The browser hashes gate content with SHA-256 before sending hashes to the SP
-- Plaintext is sent only to the local MCP server (via the Control Plane) and stored at `~/.hap/gates.json`
+- Plaintext is sent only to the local MCP server (via the admin server) and stored at `~/.hap/gates.json`
 - The MCP server verifies that the plaintext hashes match what the SP attested to
 - The agent reads gate content from the local store to understand its mandate
 
 ### Internal Endpoint Protection
 
-The MCP server exposes `/internal/*` endpoints for the Control Plane to push session configuration and gate content. These are restricted to loopback IP (`127.0.0.1`, `::1`) — only the co-located Control Plane can call them.
+The MCP server exposes `/internal/*` endpoints for the admin server to push session configuration and gate content. These are restricted to loopback IP (`127.0.0.1`, `::1`) — only the co-located admin server can call them.
 
 ### Authentication
 
-Session-based authentication via the external SP. The Control Plane proxies auth requests, rewrites cookies for localhost compatibility, and pushes the session cookie to the MCP server so it can make authenticated SP API calls on behalf of the logged-in user.
+Session-based authentication via the external SP. The admin server proxies auth requests, rewrites cookies for localhost compatibility, and pushes the session cookie to the MCP server so it can make authenticated SP API calls on behalf of the logged-in user.
 
 ---
 
 ## Architecture
 
-### Services
+### Runtime Services
 
-| Service | Port | Package | Purpose |
-|---|---|---|---|
-| **Control Plane** | 3000 | `@hap/control-plane` | Auth, SP proxy, UI serving, gate content routing |
-| **MCP Server** | 3030 | `@hap/mcp-server` | MCP tool provider, Gatekeeper, attestation cache |
-| **UI** | 3002 (dev) | `@hap/ui` | React SPA, 6-gate wizard, dashboard |
-| **hap-core** | — | `@hap/core` | Shared protocol logic, types, crypto |
+| Port | What it does | Package |
+|---|---|---|
+| **3000** | Admin — serves the UI, handles auth, proxies SP requests, manages vault and gate content | `@hap/control-plane` + `@hap/ui` (React SPA, built and served by the admin server) |
+| **3030** | MCP Gateway — tool proxy with Gatekeeper verification, attestation cache, downstream MCP servers | `@hap/mcp-server` |
+| — | Shared protocol logic — types, frame hashing, attestation verification, Gatekeeper, profiles | `@hap/core` |
 
 ### MCP Tools
 
@@ -239,8 +236,8 @@ Bounds: `max_recipients` (number, max), `channel` (string, enum)
 ```
 demo-hap/
 ├── apps/
-│   ├── control-plane/         # Express — auth proxy, UI serving
-│   │   └── src/
+│   ├── control-plane/         # Admin server (:3000) — serves UI, auth,
+│   │   └── src/               #   SP proxy, vault, gate content routing
 │   │       ├── index.ts       # Server setup, SP proxy, gate-content routing
 │   │       ├── routes/
 │   │       │   ├── auth.ts    # Login/logout via SP session
@@ -249,7 +246,7 @@ demo-hap/
 │   │           ├── mcp-bridge.ts  # HTTP client to MCP /internal/* endpoints
 │   │           └── vault.ts       # Phase 2 AES-256-GCM (stubbed)
 │   │
-│   ├── mcp-server/            # MCP tool provider + Gatekeeper
+│   ├── mcp-server/            # MCP Gateway (:3030) — Gatekeeper + tool proxy
 │   │   ├── bin/http.ts        # Express server, SSE + Streamable HTTP transports
 │   │   └── src/
 │   │       ├── index.ts       # MCP server factory, tool registration
@@ -270,7 +267,7 @@ demo-hap/
 │   │               ├── payment.ts       # Mock payment execution
 │   │               └── email.ts         # Mock email sending
 │   │
-│   └── ui/                    # React SPA
+│   └── ui/                    # React frontend (built → served by admin server)
 │       └── src/
 │           ├── App.tsx        # Routes + auth guard
 │           ├── contexts/AuthContext.tsx   # Session state
@@ -390,3 +387,7 @@ This demo implements [HAP v0.3](https://humanagencyprotocol.org/review).
 ---
 
 See [humanagencyprotocol.org](https://humanagencyprotocol.org) for the full specification.
+
+## License
+
+MIT
