@@ -4,6 +4,8 @@ HAP is AI-native control infrastructure for agent operations. It places a crypto
 
 This repository contains the open-source reference implementation of the [Human Agency Protocol](https://humanagencyprotocol.org). It connects to the Service Provider at [humanagencyprotocol.com](https://humanagencyprotocol.com) for attestation signing, domain verification, and audit trails. The team behind HAP runs its own AI-native company on this stack — dogfooding the protocol in production to prove that governed agent operations work at the scale of a real organization.
 
+> **Alpha (v0.1.0-alpha)** — This software is under active development. APIs, configuration formats, and behavior may change without notice. Not recommended for production use with high-value operations. No support is provided. Use at your own risk.
+
 ---
 
 ## How It Works
@@ -390,4 +392,10 @@ See [humanagencyprotocol.org](https://humanagencyprotocol.org) for the full spec
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+## Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied, including but not limited to the warranties of merchantability, fitness for a particular purpose, and noninfringement. In no event shall the authors or copyright holders be liable for any claim, damages, or other liability arising from the use of this software.
+
+This is alpha software. No support, SLA, or backwards compatibility is guaranteed. Use it, break it, fork it — but do not depend on it for anything you cannot afford to lose.
