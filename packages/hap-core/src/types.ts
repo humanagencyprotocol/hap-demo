@@ -114,6 +114,35 @@ export interface AgentProfile {
 
   ttl: { default: number; max: number };
   retention_minimum: number;
+
+  /** Tool gating configuration — how MCP tools map to execution context. */
+  toolGating?: ProfileToolGating;
+}
+
+// ─── Tool Gating Types ───────────────────────────────────────────────────
+
+/**
+ * Execution mapping value — either a direct field name or a field with a divisor
+ * for unit conversion (e.g., Stripe cents → EUR units).
+ */
+export type ExecutionMappingValue = string | { field: string; divisor: number };
+
+/**
+ * Tool gating entry — how a tool's calls map to execution context fields.
+ */
+export interface ProfileToolGatingEntry {
+  executionMapping: Record<string, ExecutionMappingValue>;
+  staticExecution?: Record<string, string | number>;
+}
+
+/**
+ * Profile-level tool gating configuration.
+ * - default: applied to all tools not listed in overrides
+ * - overrides: per-tool configs keyed by original MCP tool name (null = exempt)
+ */
+export interface ProfileToolGating {
+  default: ProfileToolGatingEntry;
+  overrides?: Record<string, ProfileToolGatingEntry | null>;
 }
 
 // ─── Frame Types ─────────────────────────────────────────────────────────────

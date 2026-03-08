@@ -62,3 +62,56 @@ export async function pushServiceCredentials(
     throw new Error(`MCP pushServiceCredentials failed: ${(err as { error: string }).error}`);
   }
 }
+
+// ─── Integration management ──────────────────────────────────────────────
+
+export async function getIntegrations(): Promise<unknown> {
+  const res = await fetch(`${MCP_BASE}/internal/integrations`, {
+    headers: internalHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch integrations');
+  return res.json();
+}
+
+export async function addIntegration(config: unknown): Promise<unknown> {
+  const res = await fetch(`${MCP_BASE}/internal/add-integration`, {
+    method: 'POST',
+    headers: internalHeaders(),
+    body: JSON.stringify(config),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error((err as { error: string }).error);
+  }
+  return res.json();
+}
+
+export async function addStripePreset(): Promise<unknown> {
+  return addIntegration({
+    id: 'stripe',
+    name: 'Stripe',
+    command: 'npx',
+    args: ['-y', '@stripe/mcp@latest'],
+    envKeys: { STRIPE_SECRET_KEY: 'stripe.apiKey' },
+    profile: 'stripe-gate',
+    enabled: true,
+  });
+}
+
+export async function removeIntegration(id: string): Promise<unknown> {
+  const res = await fetch(`${MCP_BASE}/internal/remove-integration/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: internalHeaders(),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+    throw new Error((err as { error: string }).error);
+  }
+  return res.json();
+}
+
+export async function getMcpHealth(): Promise<unknown> {
+  const res = await fetch(`${MCP_BASE}/health`);
+  if (!res.ok) throw new Error('MCP server unreachable');
+  return res.json();
+}

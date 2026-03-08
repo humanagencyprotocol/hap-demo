@@ -117,6 +117,24 @@ export interface GitHubPullFile {
   patch: string | null;
 }
 
+export interface McpIntegrationStatus {
+  id: string;
+  name: string;
+  running: boolean;
+  toolCount: number;
+  error?: string;
+}
+
+export interface McpHealthResponse {
+  status: string;
+  transports: string[];
+  sp: string;
+  activeSessions: number;
+  storedGates: number;
+  serviceCredentials: string[];
+  integrations: McpIntegrationStatus[];
+}
+
 class SPClient {
   private apiKey: string | null = null;
 
@@ -381,6 +399,34 @@ class SPClient {
     if (!res.ok) throw new Error(`Failed to fetch PR files: ${res.status}`);
     const data = await res.json();
     return data.files;
+  }
+
+  // ─── MCP Integrations ──────────────────────────────────────────────────
+
+  async getMcpHealth(): Promise<McpHealthResponse> {
+    const res = await this.fetch('/mcp/health');
+    if (!res.ok) throw new Error(`MCP server unreachable: ${res.status}`);
+    return res.json();
+  }
+
+  async getMcpIntegrations(): Promise<{ integrations: McpIntegrationStatus[] }> {
+    const res = await this.fetch('/mcp/integrations');
+    if (!res.ok) throw new Error(`Failed to fetch integrations: ${res.status}`);
+    return res.json();
+  }
+
+  async addMcpStripePreset(): Promise<{ ok: boolean; id: string; tools: string[]; warning?: string }> {
+    const res = await this.fetch('/mcp/integrations/preset/stripe', { method: 'POST' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed' }));
+      throw new Error(err.error || `Failed: ${res.status}`);
+    }
+    return res.json();
+  }
+
+  async removeMcpIntegration(id: string): Promise<void> {
+    const res = await this.fetch(`/mcp/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Failed to remove integration: ${res.status}`);
   }
 }
 
