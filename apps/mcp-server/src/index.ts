@@ -1,84 +1,82 @@
 /**
  * HAP MCP Server — Tool provider for the agent with embedded Gatekeeper.
  *
- * Registers tools: list-authorizations, make-payment, send-email, check-pending-attestations.
+ * Registers:
+ * - HAP admin tools: list-authorizations, check-pending-attestations
+ * - Proxied tools: discovered from downstream MCP servers via IntegrationManager
+ *
  * Builds a mandate brief from enriched authorizations and sets it as MCP instructions.
  * Tool descriptions are updated dynamically to reflect current authorization bounds.
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
-import { SharedState, type EnrichedAuthorization } from './lib/shared-state';
+import { SharedState } from './lib/shared-state';
 import { buildMandateBrief } from './lib/mandate-brief';
 import { listAuthorizationsHandler } from './tools/authorizations';
-import { makePaymentHandler } from './tools/payment';
-import { sendEmailHandler } from './tools/email';
 import { checkPendingHandler } from './tools/pending';
+import type { IntegrationManager, DiscoveredTool } from './lib/integration-manager';
+import { createGatedToolHandler, buildProxiedToolDescription } from './lib/tool-proxy';
 
-// ─── Dynamic tool descriptions ──────────────────────────────────────────────
+// ─── JSON Schema → Zod conversion ──────────────────────────────────────────
 
-function describeAuthorization(auth: EnrichedAuthorization): string {
-  const now = Math.floor(Date.now() / 1000);
-  const earliestExpiry = Math.min(...auth.attestations.map(a => a.expiresAt));
-  const remainingMin = Math.max(0, Math.round((earliestExpiry - now) / 60));
+/**
+ * Convert a JSON Schema properties object to a Zod shape for registerTool.
+ * Handles common types; defaults to z.unknown() for complex or unrecognized schemas.
+ */
+function jsonSchemaToZodShape(
+  schema: Record<string, unknown>,
+): Record<string, z.ZodTypeAny> {
+  const properties = (schema.properties ?? {}) as Record<string, Record<string, unknown>>;
+  const required = new Set((schema.required ?? []) as string[]);
+  const shape: Record<string, z.ZodTypeAny> = {};
 
-  const bounds = Object.entries(auth.frame)
-    .filter(([key]) => key !== 'profile' && key !== 'path')
-    .map(([key, value]) => `${key}: ${value}`)
-    .join(', ');
+  for (const [key, prop] of Object.entries(properties)) {
+    let zodType: z.ZodTypeAny;
 
-  let desc = `- ${auth.path}: ${bounds} (${remainingMin} min remaining)`;
-  if (auth.gateContent) {
-    desc += `\n    Purpose: ${auth.gateContent.objective}`;
+    switch (prop.type) {
+      case 'string':
+        if (prop.enum && Array.isArray(prop.enum)) {
+          zodType = z.enum(prop.enum as [string, ...string[]]);
+        } else {
+          zodType = z.string();
+        }
+        break;
+      case 'number':
+      case 'integer':
+        zodType = z.number();
+        break;
+      case 'boolean':
+        zodType = z.boolean();
+        break;
+      case 'array':
+        zodType = z.array(z.unknown());
+        break;
+      case 'object':
+        zodType = z.record(z.unknown());
+        break;
+      default:
+        zodType = z.unknown();
+        break;
+    }
+
+    if (typeof prop.description === 'string') {
+      zodType = zodType.describe(prop.description);
+    }
+
+    shape[key] = required.has(key) ? zodType : zodType.optional();
   }
-  return desc;
-}
 
-function buildPaymentDescription(auths: EnrichedAuthorization[]): string {
-  const paymentAuths = auths.filter(a => a.complete && a.profileId.startsWith('payment-gate'));
-  const pendingAuths = auths.filter(a => !a.complete && a.profileId.startsWith('payment-gate'));
-
-  if (paymentAuths.length === 0) {
-    return 'Make a payment to a recipient. No active payment authorizations.';
-  }
-
-  const lines = ['Make a payment to a recipient. Available authorizations:'];
-  for (const auth of paymentAuths) {
-    lines.push('  ' + describeAuthorization(auth));
-  }
-  for (const auth of pendingAuths) {
-    const missing = auth.requiredDomains.filter(d => !auth.attestedDomains.includes(d));
-    lines.push(`  - ${auth.path}: pending (needs ${missing.join(', ')})`);
-  }
-  lines.push('Pass the authorization name as the "authorization" parameter.');
-  return lines.join('\n');
-}
-
-function buildEmailDescription(auths: EnrichedAuthorization[]): string {
-  const commsAuths = auths.filter(a => a.complete && a.profileId.startsWith('comms-send'));
-  const pendingAuths = auths.filter(a => !a.complete && a.profileId.startsWith('comms-send'));
-
-  if (commsAuths.length === 0) {
-    return 'Send an email. No active communications authorizations.';
-  }
-
-  const lines = ['Send an email. Available authorizations:'];
-  for (const auth of commsAuths) {
-    lines.push('  ' + describeAuthorization(auth));
-  }
-  for (const auth of pendingAuths) {
-    const missing = auth.requiredDomains.filter(d => !auth.attestedDomains.includes(d));
-    lines.push(`  - ${auth.path}: pending (needs ${missing.join(', ')})`);
-  }
-  lines.push('Pass the authorization name as the "authorization" parameter.');
-  return lines.join('\n');
+  return shape;
 }
 
 // ─── Server factory ─────────────────────────────────────────────────────────
 
-export function createMcpServer(state: SharedState) {
-  const { gatekeeper, cache } = state;
+export function createMcpServer(
+  state: SharedState,
+  integrationManager?: IntegrationManager,
+) {
+  const { cache } = state;
 
   // Build mandate brief from current enriched authorizations
   const enriched = state.getEnrichedAuthorizations();
@@ -99,39 +97,6 @@ export function createMcpServer(state: SharedState) {
     listAuthorizationsHandler(state)
   );
 
-  // ─── make-payment ────────────────────────────────────────────────────────
-
-  const makePayment: RegisteredTool = server.registerTool(
-    'make-payment',
-    {
-      description: 'Make a payment to a recipient. Requires an active payment authorization.',
-      inputSchema: {
-        authorization: z.string().describe('Which authorization to use (e.g., "payment-routine")'),
-        amount: z.number().describe('Payment amount'),
-        currency: z.string().describe('Currency code (e.g., "EUR")'),
-        recipient: z.string().describe('Payment recipient identifier'),
-        memo: z.string().optional().describe('Optional payment memo'),
-      },
-    },
-    makePaymentHandler(gatekeeper)
-  );
-
-  // ─── send-email ──────────────────────────────────────────────────────────
-
-  const sendEmail: RegisteredTool = server.registerTool(
-    'send-email',
-    {
-      description: 'Send an email. Requires an active communications authorization.',
-      inputSchema: {
-        authorization: z.string().describe('Which authorization to use (e.g., "send-internal")'),
-        to: z.string().describe('Recipient email address(es), comma-separated'),
-        subject: z.string().describe('Email subject'),
-        body: z.string().describe('Email body'),
-      },
-    },
-    sendEmailHandler(gatekeeper)
-  );
-
   // ─── check-pending-attestations ──────────────────────────────────────────
 
   server.registerTool(
@@ -145,26 +110,70 @@ export function createMcpServer(state: SharedState) {
     checkPendingHandler(cache)
   );
 
-  // ─── Dynamic tool visibility + descriptions ──────────────────────────────
+  // ─── Proxied tools from downstream integrations ──────────────────────────
+
+  const proxiedTools = new Map<string, { tool: DiscoveredTool; registered: ReturnType<typeof server.registerTool> }>();
+
+  function registerProxiedTools() {
+    if (!integrationManager) return;
+
+    const allTools = integrationManager.getAllTools();
+
+    // Remove tools that no longer exist
+    for (const [name] of proxiedTools) {
+      if (!allTools.some(t => t.namespacedName === name)) {
+        const entry = proxiedTools.get(name);
+        entry?.registered.remove();
+        proxiedTools.delete(name);
+      }
+    }
+
+    // Register new tools
+    for (const tool of allTools) {
+      if (proxiedTools.has(tool.namespacedName)) continue;
+
+      const handler = createGatedToolHandler(tool, integrationManager, state);
+      const zodShape = jsonSchemaToZodShape(tool.inputSchema);
+      const description = buildProxiedToolDescription(tool, state);
+
+      const registered = server.registerTool(
+        tool.namespacedName,
+        {
+          description,
+          ...(Object.keys(zodShape).length > 0 ? { inputSchema: zodShape } : {}),
+        },
+        handler as Parameters<typeof server.registerTool>[2],
+      );
+
+      proxiedTools.set(tool.namespacedName, { tool, registered });
+    }
+  }
+
+  // ─── Dynamic tool descriptions ──────────────────────────────────────────
 
   function refreshTools() {
     const auths = state.getEnrichedAuthorizations();
-    const hasPayment = auths.some(a => a.complete && a.profileId.startsWith('payment-gate'));
-    const hasComms = auths.some(a => a.complete && a.profileId.startsWith('comms-send'));
 
-    // Update descriptions with current authorization context
-    makePayment.update({ description: buildPaymentDescription(auths) });
-    sendEmail.update({ description: buildEmailDescription(auths) });
+    // Update proxied tool descriptions and visibility
+    for (const [, { tool, registered }] of proxiedTools) {
+      const description = buildProxiedToolDescription(tool, state);
+      registered.update({ description });
 
-    // Enable/disable based on active authorizations
-    if (hasPayment) makePayment.enable(); else makePayment.disable();
-    if (hasComms) sendEmail.enable(); else sendEmail.disable();
+      // For gated tools, enable/disable based on matching authorizations
+      if (tool.gating?.profile) {
+        const hasAuth = auths.some(
+          a => a.complete && a.profileId.startsWith(tool.gating!.profile!),
+        );
+        if (hasAuth) registered.enable(); else registered.disable();
+      }
+    }
 
     server.sendToolListChanged();
   }
 
-  // Set initial tool visibility + descriptions
+  // Register any existing proxied tools and set initial visibility
+  registerProxiedTools();
   refreshTools();
 
-  return { server, gatekeeper, refreshTools };
+  return { server, gatekeeper: state.gatekeeper, refreshTools, registerProxiedTools };
 }

@@ -20,6 +20,9 @@ import { SharedState } from '../src/lib/shared-state';
 import { createMcpServer } from '../src/index';
 import { verifyGateContentHashes } from '../src/lib/gate-content';
 import type { GateContent } from '../src/lib/gate-store';
+import { IntegrationRegistry, type IntegrationConfig } from '../src/lib/integration-registry';
+import { IntegrationManager } from '../src/lib/integration-manager';
+import { loadProfiles } from '../src/lib/profile-loader';
 
 const spUrl = process.env.HAP_SP_URL ?? 'https://www.humanagencyprotocol.com';
 const port = parseInt(process.env.HAP_MCP_PORT ?? '3030', 10);
@@ -32,13 +35,36 @@ const state = new SharedState(spUrl);
 
 const serviceCredentials = new Map<string, Record<string, string>>();
 
+// ─── Integration registry + manager ────────────────────────────────────────
+
+const integrationRegistry = new IntegrationRegistry();
+const integrationManager = new IntegrationManager(serviceCredentials);
+
 // ─── Track active MCP sessions for refresh propagation ─────────────────────
 
 interface ActiveSession {
   refreshTools: () => void;
+  registerProxiedTools: () => void;
 }
 
 const activeSessions = new Map<string, ActiveSession>();
+
+/** Refresh tools on all active MCP sessions */
+function refreshAllSessions() {
+  for (const [sessionId, session] of activeSessions) {
+    try {
+      session.registerProxiedTools();
+      session.refreshTools();
+    } catch (err) {
+      console.error(`[HAP MCP] Failed to refresh session ${sessionId}:`, err);
+    }
+  }
+}
+
+// When tools change (integration start/stop/crash), refresh all sessions
+integrationManager.setOnToolsChanged(() => {
+  refreshAllSessions();
+});
 
 const app = express();
 app.use(express.json());
@@ -156,7 +182,75 @@ app.post('/internal/service-credentials', internalOnly, (req: Request, res: Resp
   }
   serviceCredentials.set(serviceId, credentials);
   console.error(`[HAP MCP] Service credentials stored for ${serviceId}`);
+
+  // Late-start: try starting integrations that depend on these credentials
+  startPendingIntegrations();
+
   res.json({ ok: true });
+});
+
+// ─── Integration management endpoints ──────────────────────────────────────
+
+app.post('/internal/add-integration', internalOnly, async (req: Request, res: Response) => {
+  try {
+    const config = req.body as IntegrationConfig;
+    if (!config.id || !config.command) {
+      res.status(400).json({ error: 'Missing required fields: id, command' });
+      return;
+    }
+
+    // Persist config
+    integrationRegistry.add(config);
+    console.error(`[HAP MCP] Integration ${config.id} added to registry`);
+
+    // Try to start if enabled and credentials are available
+    if (config.enabled) {
+      if (Object.keys(config.envKeys ?? {}).length === 0 || integrationManager.canResolveEnvKeys(config)) {
+        try {
+          const tools = await integrationManager.startIntegration(config);
+          res.json({ ok: true, id: config.id, tools: tools.map(t => t.namespacedName) });
+          return;
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          console.error(`[HAP MCP] Failed to start integration ${config.id}:`, message);
+          res.json({ ok: true, id: config.id, tools: [], warning: `Saved but failed to start: ${message}` });
+          return;
+        }
+      } else {
+        console.error(`[HAP MCP] Integration ${config.id} saved but waiting for credentials`);
+        res.json({ ok: true, id: config.id, tools: [], warning: 'Saved but waiting for service credentials' });
+        return;
+      }
+    }
+
+    res.json({ ok: true, id: config.id, tools: [] });
+  } catch (err) {
+    console.error('[HAP MCP] Error adding integration:', err);
+    res.status(500).json({ error: 'Internal error' });
+  }
+});
+
+app.delete('/internal/remove-integration/:id', internalOnly, async (req: Request, res: Response) => {
+  const id = req.params.id as string;
+
+  // Stop if running
+  await integrationManager.stopIntegration(id);
+
+  // Remove from registry
+  const removed = integrationRegistry.remove(id);
+  if (!removed) {
+    res.status(404).json({ error: `Integration "${id}" not found` });
+    return;
+  }
+
+  console.error(`[HAP MCP] Integration ${id} removed`);
+  res.json({ ok: true, id });
+});
+
+app.get('/internal/integrations', internalOnly, (_req: Request, res: Response) => {
+  const configs = integrationRegistry.getAll();
+  const statuses = integrationManager.getStatus(configs);
+  res.json({ integrations: statuses });
 });
 
 // ─── SSE transport (for mcporter / OpenClaw) ────────────────────────────────
@@ -166,11 +260,11 @@ const sseSessions = new Map<string, SSEServerTransport>();
 // GET /sse — client opens SSE stream
 app.get('/sse', async (_req: Request, res: Response) => {
   const transport = new SSEServerTransport('/messages', res);
-  const { server, refreshTools } = createMcpServer(state);
+  const { server, refreshTools, registerProxiedTools } = createMcpServer(state, integrationManager);
 
   const sessionId = transport.sessionId;
   sseSessions.set(sessionId, transport);
-  activeSessions.set(sessionId, { refreshTools });
+  activeSessions.set(sessionId, { refreshTools, registerProxiedTools });
   console.error(`[HAP MCP] SSE session ${sessionId} connected`);
 
   res.on('close', () => {
@@ -220,12 +314,12 @@ app.all('/mcp', async (req: Request, res: Response) => {
         }
       };
 
-      const { server, refreshTools } = createMcpServer(state);
+      const { server, refreshTools, registerProxiedTools } = createMcpServer(state, integrationManager);
       await server.connect(transport);
 
       if (transport.sessionId) {
         streamableSessions.set(transport.sessionId, transport);
-        activeSessions.set(transport.sessionId, { refreshTools });
+        activeSessions.set(transport.sessionId, { refreshTools, registerProxiedTools });
         console.error(`[HAP MCP] Streamable session ${transport.sessionId}`);
       }
 
@@ -249,12 +343,62 @@ app.get('/health', (_req: Request, res: Response) => {
     activeSessions: activeSessions.size,
     storedGates: state.gateStore.getAll().length,
     serviceCredentials: Array.from(serviceCredentials.keys()),
+    integrations: integrationManager.getStatus(integrationRegistry.getAll()),
   });
 });
+
+// ─── Integration startup helpers ────────────────────────────────────────────
+
+/**
+ * Start integrations that are enabled and have their credentials available.
+ * Called at startup and after new credentials are received.
+ */
+async function startPendingIntegrations() {
+  const configs = integrationRegistry.getEnabled();
+  for (const config of configs) {
+    if (integrationManager.isRunning(config.id)) continue;
+
+    const needsCreds = Object.keys(config.envKeys ?? {}).length > 0;
+    if (needsCreds && !integrationManager.canResolveEnvKeys(config)) continue;
+
+    try {
+      await integrationManager.startIntegration(config);
+    } catch (err) {
+      console.error(`[HAP MCP] Failed to start integration ${config.id}:`, err);
+    }
+  }
+}
+
+// ─── Graceful shutdown ──────────────────────────────────────────────────────
+
+process.on('SIGTERM', async () => {
+  console.error('[HAP MCP] SIGTERM received, shutting down...');
+  await integrationManager.shutdown();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.error('[HAP MCP] SIGINT received, shutting down...');
+  await integrationManager.shutdown();
+  process.exit(0);
+});
+
+// ─── Start server ───────────────────────────────────────────────────────────
 
 app.listen(port, '0.0.0.0', () => {
   console.error(`[HAP MCP] HTTP server listening on http://0.0.0.0:${port}`);
   console.error(`[HAP MCP]   SSE:        http://0.0.0.0:${port}/sse`);
   console.error(`[HAP MCP]   Streamable: http://0.0.0.0:${port}/mcp`);
   console.error(`[HAP MCP]   SP server:  ${spUrl}`);
+
+  // Load profiles before starting integrations
+  loadProfiles();
+
+  // Restore integrations from registry on startup
+  startPendingIntegrations().then(() => {
+    const running = integrationManager.getStatus().filter(s => s.running);
+    if (running.length > 0) {
+      console.error(`[HAP MCP] Restored ${running.length} integration(s): ${running.map(s => s.id).join(', ')}`);
+    }
+  });
 });

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { spClient, type ServiceDef } from '../lib/sp-client';
+import { spClient, type ServiceDef, type McpIntegrationStatus } from '../lib/sp-client';
 import { ServiceCredentialModal } from '../components/ServiceCredentialModal';
 
 type TabId = 'general' | 'services' | 'mcp';
@@ -56,6 +56,15 @@ export function SettingsServicesPage() {
   const [ghTesting, setGhTesting] = useState(false);
   const [ghTestResult, setGhTestResult] = useState<string | null>(null);
 
+  // MCP tab state
+  const [mcpIntegrations, setMcpIntegrations] = useState<McpIntegrationStatus[]>([]);
+  const [mcpLoading, setMcpLoading] = useState(false);
+  const [mcpServerUp, setMcpServerUp] = useState<boolean | null>(null);
+  const [mcpAdding, setMcpAdding] = useState(false);
+  const [stripeKeyInput, setStripeKeyInput] = useState('');
+  const [stripeKeyConfigured, setStripeKeyConfigured] = useState(false);
+  const [stripeSaving, setStripeSaving] = useState(false);
+
   // Add service form state
   const [showAddService, setShowAddService] = useState(false);
   const [newServiceName, setNewServiceName] = useState('');
@@ -101,10 +110,29 @@ export function SettingsServicesPage() {
     }
   }, []);
 
+  const loadMcpStatus = useCallback(async () => {
+    setMcpLoading(true);
+    try {
+      const health = await spClient.getMcpHealth();
+      setMcpServerUp(true);
+      setMcpIntegrations(health.integrations);
+      setStripeKeyConfigured(health.serviceCredentials.includes('stripe'));
+    } catch {
+      setMcpServerUp(false);
+      setMcpIntegrations([]);
+    } finally {
+      setMcpLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadServices();
     loadGeneralStatus();
   }, [loadServices, loadGeneralStatus]);
+
+  useEffect(() => {
+    if (activeTab === 'mcp') loadMcpStatus();
+  }, [activeTab, loadMcpStatus]);
 
   const handleAiPresetChange = (preset: string) => {
     setAiPreset(preset);
@@ -202,6 +230,51 @@ export function SettingsServicesPage() {
       loadServices();
     } catch {
       setSuccessMsg('Failed to add service');
+    }
+  };
+
+  const saveStripeKey = async () => {
+    if (!stripeKeyInput.trim()) return;
+    setStripeSaving(true);
+    try {
+      await spClient.setCredential('stripe', { apiKey: stripeKeyInput });
+      setStripeKeyConfigured(true);
+      setStripeKeyInput('');
+      setSuccessMsg('Stripe API key saved!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch {
+      setSuccessMsg('Failed to save Stripe key');
+    } finally {
+      setStripeSaving(false);
+    }
+  };
+
+  const addStripeIntegration = async () => {
+    setMcpAdding(true);
+    try {
+      const result = await spClient.addMcpStripePreset();
+      if (result.warning) {
+        setSuccessMsg(result.warning);
+      } else {
+        setSuccessMsg(`Stripe integration started with ${result.tools.length} tools`);
+      }
+      setTimeout(() => setSuccessMsg(''), 5000);
+      await loadMcpStatus();
+    } catch (err) {
+      setSuccessMsg(`Failed to add Stripe: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setMcpAdding(false);
+    }
+  };
+
+  const removeIntegration = async (id: string) => {
+    try {
+      await spClient.removeMcpIntegration(id);
+      setSuccessMsg(`Integration "${id}" removed`);
+      setTimeout(() => setSuccessMsg(''), 3000);
+      await loadMcpStatus();
+    } catch {
+      setSuccessMsg(`Failed to remove integration "${id}"`);
     }
   };
 
@@ -547,13 +620,139 @@ export function SettingsServicesPage() {
       )}
 
       {activeTab === 'mcp' && (
-        <div className="card">
-          <h3 className="card-title">MCP Configuration</h3>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-            The MCP server is running and providing tools to connected agents.
-            Tool availability is controlled by active attestations.
-          </p>
-        </div>
+        <>
+          {/* MCP Server Status */}
+          {mcpLoading ? (
+            <p style={{ color: 'var(--text-tertiary)' }}>Checking MCP server...</p>
+          ) : mcpServerUp === false ? (
+            <div className="status-banner status-banner-error">
+              <span className="status-banner-icon">!</span>
+              <span className="status-banner-text">
+                MCP server is not reachable. Make sure it is running on port 3030.
+              </span>
+            </div>
+          ) : (
+            <>
+              <div className="status-banner status-banner-success" style={{ marginBottom: '1.5rem' }}>
+                <span className="status-banner-icon">{'\u2713'}</span>
+                <span className="status-banner-text">
+                  MCP server is running. Tool availability is controlled by active attestations.
+                </span>
+              </div>
+
+              {/* Active Integrations */}
+              {mcpIntegrations.length > 0 && (
+                <div className="card" style={{ marginBottom: '1.5rem' }}>
+                  <h3 className="card-title">Active Integrations</h3>
+                  {mcpIntegrations.map(integration => (
+                    <div key={integration.id} className="service-card">
+                      <div className={`service-icon ${integration.running ? 'service-icon-configured' : 'service-icon-error'}`}>
+                        {integration.id === 'stripe' ? '\u{1F4B3}' : '\u{1F527}'}
+                      </div>
+                      <div className="service-info">
+                        <div className="service-name">{integration.name}</div>
+                        <div className={`service-status ${integration.running ? 'service-status-connected' : 'service-status-error'}`}>
+                          <span className="service-status-dot" />
+                          {integration.running ? `Running (${integration.toolCount} tools)` : 'Stopped'}
+                        </div>
+                        {integration.error && (
+                          <div style={{ fontSize: '0.8rem', color: 'var(--danger)', marginTop: '0.25rem' }}>
+                            {integration.error}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        className="btn btn-sm btn-ghost"
+                        style={{ color: 'var(--danger)' }}
+                        onClick={() => removeIntegration(integration.id)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Stripe Setup */}
+              <div className="card" style={{ marginBottom: '1.5rem' }}>
+                <h3 className="card-title">Stripe Integration</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
+                  Connect Stripe to let agents create invoices, payment links, and manage billing.
+                  Financial operations are gated through HAP payment-gate authorization.
+                </p>
+
+                {/* API Key */}
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label">Stripe API Key</label>
+                  {stripeKeyConfigured && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--success)', marginBottom: '0.375rem' }}>
+                      {'\u2713'} API key configured
+                    </div>
+                  )}
+                  <input
+                    className="form-input"
+                    type="password"
+                    value={stripeKeyInput}
+                    onChange={e => setStripeKeyInput(e.target.value)}
+                    placeholder={stripeKeyConfigured ? '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022' : 'sk_test_... or sk_live_...'}
+                  />
+                  <span className="form-hint">
+                    Use a test key (sk_test_...) for development. Keys are encrypted in your vault.
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {!stripeKeyConfigured ? (
+                    /* Step 1: No key yet — Save Key is the primary action */
+                    <button
+                      className="btn btn-primary"
+                      onClick={saveStripeKey}
+                      disabled={stripeSaving || !stripeKeyInput.trim()}
+                    >
+                      {stripeSaving ? 'Saving...' : 'Save & Encrypt Key'}
+                    </button>
+                  ) : (
+                    <>
+                      {/* Key is configured — allow updating it */}
+                      <button
+                        className="btn btn-ghost"
+                        onClick={saveStripeKey}
+                        disabled={stripeSaving || !stripeKeyInput.trim()}
+                      >
+                        {stripeSaving ? 'Saving...' : 'Update Key'}
+                      </button>
+
+                      {/* Step 2: Key saved — Start Integration is the primary action */}
+                      {!mcpIntegrations.some(i => i.id === 'stripe') && (
+                        <button
+                          className="btn btn-primary"
+                          onClick={addStripeIntegration}
+                          disabled={mcpAdding}
+                        >
+                          {mcpAdding ? 'Starting...' : 'Start Stripe Integration'}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* How it works */}
+              <div className="card">
+                <h3 className="card-title">How Gating Works</h3>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                  Read-only Stripe tools (list invoices, search customers, etc.) are <strong>ungated</strong> and
+                  available to the agent immediately. Write-financial tools (create invoice, create payment link,
+                  finalize invoice, create refund) require an active <strong>payment-gate</strong> authorization.
+                </p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '0.5rem' }}>
+                  Stripe amounts are in cents. The gateway automatically converts to units before checking
+                  against your authorization bounds (e.g., 5000 cents = 50 EUR vs. amount_max: 80 EUR).
+                </p>
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {/* Credential Modal */}

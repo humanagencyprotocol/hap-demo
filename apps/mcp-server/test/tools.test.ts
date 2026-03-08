@@ -1,11 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { listAuthorizationsHandler } from '../src/tools/authorizations';
-import { makePaymentHandler } from '../src/tools/payment';
 import { checkPendingHandler } from '../src/tools/pending';
 import type { AttestationCache, CachedAuthorization } from '../src/lib/attestation-cache';
-import type { MCPGatekeeper } from '../src/lib/gatekeeper';
 import type { SharedState, EnrichedAuthorization } from '../src/lib/shared-state';
-import type { GatekeeperResult } from '@hap/core';
 
 // ─── Mock factories ──────────────────────────────────────────────────────────
 
@@ -37,15 +34,6 @@ function mockCache(authorizations: CachedAuthorization[] = []): AttestationCache
     syncAuthorization: async () => null,
     cacheAuthorization: () => {},
   } as unknown as AttestationCache;
-}
-
-function mockGatekeeper(verifyResult: GatekeeperResult): MCPGatekeeper {
-  return {
-    verifyExecution: async (_path: string, _execution: Record<string, string | number>) => ({
-      result: verifyResult,
-      authorization: null,
-    }),
-  } as unknown as MCPGatekeeper;
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────────────
@@ -111,67 +99,6 @@ describe('list-authorizations', () => {
     const text = result.content[0].text;
     expect(text).toContain('Pending');
     expect(text).toContain('compliance');
-  });
-});
-
-describe('make-payment', () => {
-  it('returns success when Gatekeeper approves', async () => {
-    const handler = makePaymentHandler(mockGatekeeper({ approved: true }));
-    const result = await handler({
-      authorization: 'payment-routine',
-      amount: 5,
-      currency: 'EUR',
-      recipient: 'supplier-x',
-    });
-
-    expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Payment confirmed');
-    expect(result.content[0].text).toContain('supplier-x');
-  });
-
-  it('returns error when Gatekeeper rejects', async () => {
-    const handler = makePaymentHandler(mockGatekeeper({
-      approved: false,
-      errors: [{
-        code: 'BOUND_EXCEEDED',
-        field: 'amount',
-        message: 'Value 120 exceeds authorized maximum of 80',
-        bound: 80,
-        actual: 120,
-      }],
-    }));
-
-    const result = await handler({
-      authorization: 'payment-routine',
-      amount: 120,
-      currency: 'EUR',
-      recipient: 'supplier-x',
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('Payment rejected');
-    expect(result.content[0].text).toContain('120');
-    expect(result.content[0].text).toContain('80');
-  });
-
-  it('returns error when no authorization exists', async () => {
-    const handler = makePaymentHandler(mockGatekeeper({
-      approved: false,
-      errors: [{
-        code: 'DOMAIN_NOT_COVERED',
-        message: 'No active authorization for "payment-routine".',
-      }],
-    }));
-
-    const result = await handler({
-      authorization: 'payment-routine',
-      amount: 5,
-      currency: 'EUR',
-      recipient: 'supplier-x',
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('No active authorization');
   });
 });
 

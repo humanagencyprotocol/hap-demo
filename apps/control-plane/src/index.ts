@@ -21,6 +21,7 @@ import { createAIRouter } from './routes/ai';
 import { createGitHubRouter } from './routes/github';
 import { requireAuth } from './middleware/auth';
 import { pushGateContent, setInternalSecret } from './lib/mcp-bridge';
+import { createMCPRouter } from './routes/mcp';
 
 const SP_URL = process.env.HAP_SP_URL ?? 'https://www.humanagencyprotocol.com';
 const port = parseInt(process.env.HAP_CP_PORT ?? '3000', 10);
@@ -84,6 +85,9 @@ app.use('/ai', jsonParser, authGuard, createAIRouter(vault));
 
 // GitHub routes
 app.use('/github', jsonParser, authGuard, createGitHubRouter(vault));
+
+// MCP integration management routes
+app.use('/mcp', jsonParser, authGuard, createMCPRouter());
 
 // Gate content forward — protected
 app.post('/gate-content', jsonParser, authGuard, async (req: Request, res: Response) => {
