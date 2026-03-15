@@ -15,7 +15,6 @@ describe('gatekeeper', () => {
     amount_max: 80,
     currency: 'EUR',
     action_type: 'charge',
-    target_env: 'production',
   };
 
   const reviewedFrame: AgentFrameParams = {
@@ -24,7 +23,6 @@ describe('gatekeeper', () => {
     amount_max: 5000,
     currency: 'EUR',
     action_type: 'charge',
-    target_env: 'production',
   };
 
   beforeAll(async () => {
@@ -46,7 +44,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 5, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 5, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -66,7 +64,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 80, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 80, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -88,7 +86,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 120, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 120, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -117,7 +115,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 5, currency: 'USD', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 5, currency: 'USD', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -144,7 +142,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 5, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 5, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -169,7 +167,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [blob],
-          execution: { amount: 5, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 5, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex // verifying with a different key
       );
@@ -196,7 +194,7 @@ describe('gatekeeper', () => {
         {
           frame: reviewedFrame,
           attestations: [financeBlob],
-          execution: { amount: 2000, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 2000, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -225,7 +223,7 @@ describe('gatekeeper', () => {
         {
           frame: reviewedFrame,
           attestations: [financeBlob, complianceBlob],
-          execution: { amount: 2000, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 2000, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );
@@ -256,7 +254,7 @@ describe('gatekeeper', () => {
     it('rejects unknown path', async () => {
       const result = await verify(
         {
-          frame: { profile: 'spend@0.3', path: 'nonexistent-path', amount_max: 80, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          frame: { profile: 'spend@0.3', path: 'nonexistent-path', amount_max: 80, currency: 'EUR', action_type: 'charge'},
           attestations: [],
           execution: {},
         },
@@ -277,7 +275,7 @@ describe('gatekeeper', () => {
         {
           frame: routineFrame,
           attestations: [],
-          execution: { amount: 5, currency: 'EUR', action_type: 'charge', target_env: 'production' },
+          execution: { amount: 5, currency: 'EUR', action_type: 'charge'},
         },
         keyPair.publicKeyHex
       );

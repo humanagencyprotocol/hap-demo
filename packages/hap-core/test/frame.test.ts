@@ -11,12 +11,11 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       const result = canonicalFrame(frame, SPEND_PROFILE);
       expect(result).toBe(
-        'profile=spend@0.3\npath=spend-routine\namount_max=80\ncurrency=EUR\naction_type=charge\ntarget_env=production'
+        'profile=spend@0.3\npath=spend-routine\namount_max=80\ncurrency=EUR\naction_type=charge'
       );
     });
 
@@ -27,7 +26,6 @@ describe('frame', () => {
         amount_max: 100.5,
         currency: 'USD',
         action_type: 'charge',
-        target_env: 'staging',
       };
 
       const result = canonicalFrame(frame, SPEND_PROFILE);
@@ -54,7 +52,7 @@ describe('frame', () => {
       const frame = {
         profile: 'spend@0.3',
         path: 'spend-routine',
-        // missing amount_max, currency, action_type, target_env
+        // missing amount_max, currency, action_type
       };
 
       expect(() => canonicalFrame(frame, SPEND_PROFILE)).toThrow('Missing required field');
@@ -67,7 +65,6 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
         unknown_field: 'value',
       };
 
@@ -81,7 +78,6 @@ describe('frame', () => {
         amount_max: 'eighty' as unknown as number,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       expect(() => canonicalFrame(frame, SPEND_PROFILE)).toThrow('must be a number');
@@ -96,7 +92,6 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       const hash = computeFrameHash(frame, SPEND_PROFILE);
@@ -110,7 +105,6 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       const hash1 = computeFrameHash(frame, SPEND_PROFILE);
@@ -125,7 +119,6 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
       const frame2 = {
         profile: 'spend@0.3',
@@ -133,7 +126,6 @@ describe('frame', () => {
         amount_max: 100,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       const hash1 = computeFrameHash(frame1, SPEND_PROFILE);
@@ -150,7 +142,6 @@ describe('frame', () => {
         amount_max: 80,
         currency: 'EUR',
         action_type: 'charge',
-        target_env: 'production',
       };
 
       const result = validateFrameParams(frame, SPEND_PROFILE);
@@ -161,12 +152,12 @@ describe('frame', () => {
     it('reports multiple errors at once', () => {
       const frame = {
         profile: 'spend@0.3',
-        // missing path, amount_max, currency, action_type, target_env
+        // missing path, amount_max, currency, action_type
       };
 
       const result = validateFrameParams(frame, SPEND_PROFILE);
       expect(result.valid).toBe(false);
-      expect(result.errors.length).toBeGreaterThanOrEqual(5);
+      expect(result.errors.length).toBeGreaterThanOrEqual(4);
     });
   });
 });
