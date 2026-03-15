@@ -13,7 +13,7 @@ export const SPEND_PROFILE: AgentProfile = {
   description: 'Financial authority — governs committing company money: charges, refunds, subscriptions, payouts',
 
   frameSchema: {
-    keyOrder: ['profile', 'path', 'amount_max', 'currency', 'action_type', 'target_env'],
+    keyOrder: ['profile', 'path', 'amount_max', 'currency', 'action_type'],
     fields: {
       profile: { type: 'string', required: true },
       path: { type: 'string', required: true },
@@ -33,12 +33,6 @@ export const SPEND_PROFILE: AgentProfile = {
         type: 'string',
         required: true,
         description: 'Authorized financial operation (charge, refund, subscribe)',
-        constraint: { type: 'string', enforceable: ['enum'] },
-      },
-      target_env: {
-        type: 'string',
-        required: true,
-        description: 'Target environment (production or sandbox)',
         constraint: { type: 'string', enforceable: ['enum'] },
       },
     },
@@ -61,12 +55,6 @@ export const SPEND_PROFILE: AgentProfile = {
       currency: {
         source: 'declared',
         description: 'Currency code',
-        required: true,
-        constraint: { type: 'string', enforceable: ['enum'] },
-      },
-      target_env: {
-        source: 'declared',
-        description: 'Target environment',
         required: true,
         constraint: { type: 'string', enforceable: ['enum'] },
       },
