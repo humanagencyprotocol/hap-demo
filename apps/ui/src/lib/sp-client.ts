@@ -227,6 +227,32 @@ class SPClient {
     return data.pending ?? data;
   }
 
+  async getMyAttestations(status?: string): Promise<PendingItem[]> {
+    const qs = status ? `?status=${encodeURIComponent(status)}` : '';
+    const res = await this.fetch(`/api/attestations/mine${qs}`);
+    if (!res.ok) throw new Error(`Failed to fetch attestations: ${res.status}`);
+    const data = await res.json();
+    // Normalize mine response to PendingItem shape
+    return (data.attestations ?? []).map((a: Record<string, unknown>) => ({
+      frame_hash: a.frameHash,
+      profile_id: a.profileId,
+      path: a.path,
+      frame: a.frame ?? {},
+      required_domains: a.requiredDomains ?? [],
+      attested_domains: a.attestedDomains ?? [],
+      missing_domains: (a.requiredDomains as string[] ?? []).filter(
+        (d: string) => !(a.attestedDomains as string[] ?? []).includes(d)
+      ),
+      created_at: a.createdAt ? new Date((a.createdAt as number) * 1000).toISOString() : '',
+      earliest_expiry: a.attestations
+        ? new Date(Math.min(...(a.attestations as Array<{expiresAt: number}>).map(att => att.expiresAt)) * 1000).toISOString()
+        : null,
+      remaining_seconds: a.attestations
+        ? Math.max(0, Math.min(...(a.attestations as Array<{expiresAt: number}>).map(att => att.expiresAt)) - Math.floor(Date.now() / 1000))
+        : null,
+    }));
+  }
+
   async getAttestations(frameHash: string): Promise<AttestationsResult> {
     const res = await this.fetch(`/api/attestations?frame_hash=${encodeURIComponent(frameHash)}`);
     if (!res.ok) throw new Error(`Failed to fetch attestations: ${res.status}`);
@@ -427,6 +453,19 @@ class SPClient {
   async removeMcpIntegration(id: string): Promise<void> {
     const res = await this.fetch(`/mcp/integrations/${encodeURIComponent(id)}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Failed to remove integration: ${res.status}`);
+  }
+
+  // ─── Gate Content ───────────────────────────────────────────────────────
+
+  async pushGateContent(data: { frameHash: string; path: string; gateContent: Record<string, string> }): Promise<void> {
+    const res = await this.fetch('/gate-content', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Failed to push gate content' }));
+      throw new Error(err.error || `Push gate content failed: ${res.status}`);
+    }
   }
 }
 

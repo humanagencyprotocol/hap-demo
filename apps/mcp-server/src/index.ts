@@ -16,7 +16,7 @@ import { buildMandateBrief } from './lib/mandate-brief';
 import { listAuthorizationsHandler } from './tools/authorizations';
 import { checkPendingHandler } from './tools/pending';
 import type { IntegrationManager, DiscoveredTool } from './lib/integration-manager';
-import { createGatedToolHandler, buildProxiedToolDescription } from './lib/tool-proxy';
+import { createGatedToolHandler, buildProxiedToolDescription, profileMatches } from './lib/tool-proxy';
 
 // ─── JSON Schema → Zod conversion ──────────────────────────────────────────
 
@@ -162,7 +162,7 @@ export function createMcpServer(
       // For gated tools, enable/disable based on matching authorizations
       if (tool.gating?.profile) {
         const hasAuth = auths.some(
-          a => a.complete && a.profileId.startsWith(tool.gating!.profile!),
+          a => a.complete && profileMatches(a.profileId, tool.gating!.profile!),
         );
         if (hasAuth) registered.enable(); else registered.disable();
       }

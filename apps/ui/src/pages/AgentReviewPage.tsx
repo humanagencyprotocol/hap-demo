@@ -66,15 +66,10 @@ export function AgentReviewPage() {
       ]);
 
       // Push gate content to MCP server via control plane
-      await fetch('/gate-content', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          frameHash,
-          path: authData.path,
-          gateContent: gateData.gateContent,
-        }),
+      await spClient.pushGateContent({
+        frameHash,
+        path: authData.path,
+        gateContent: gateData.gateContent,
       });
 
       const result = await spClient.attest({

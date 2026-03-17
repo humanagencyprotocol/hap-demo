@@ -1,8 +1,11 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { listAuthorizationsHandler } from '../src/tools/authorizations';
 import { checkPendingHandler } from '../src/tools/pending';
+import { createGatedToolHandler } from '../src/lib/tool-proxy';
+import { SPReceiptError } from '../src/lib/sp-client';
 import type { AttestationCache, CachedAuthorization } from '../src/lib/attestation-cache';
 import type { SharedState, EnrichedAuthorization } from '../src/lib/shared-state';
+import type { IntegrationManager, DiscoveredTool } from '../src/lib/integration-manager';
 
 // ─── Mock factories ──────────────────────────────────────────────────────────
 
@@ -107,5 +110,118 @@ describe('check-pending-attestations', () => {
     const handler = checkPendingHandler(mockCache());
     const result = await handler({ domain: 'compliance' });
     expect(result.content[0].text).toContain('No pending attestations');
+  });
+});
+
+// ─── Tool proxy receipt integration tests ─────────────────────────────────
+
+function mockGatedState(opts: {
+  postReceipt?: () => Promise<unknown>;
+  verifyResult?: { approved: boolean; errors?: Array<{ code: string; message: string; field?: string }> };
+} = {}): SharedState {
+  const now = Math.floor(Date.now() / 1000);
+  const auth: CachedAuthorization = {
+    frameHash: 'sha256:abc',
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
+    path: 'spend-routine',
+    frame: { profile: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3', path: 'spend-routine', amount_max: 100, currency: 'EUR', action_type: 'charge' },
+    attestations: [{ domain: 'finance', blob: 'blob', expiresAt: now + 3600 }],
+    requiredDomains: ['finance'],
+    attestedDomains: ['finance'],
+    complete: true,
+  };
+
+  const enriched: EnrichedAuthorization[] = [{ ...auth, gateContent: null }];
+
+  return {
+    getEnrichedAuthorizations: () => enriched,
+    spClient: {
+      postReceipt: opts.postReceipt ?? vi.fn().mockResolvedValue({ receipt: { id: 'r1' } }),
+    },
+    gatekeeper: {
+      verifyExecution: vi.fn().mockResolvedValue({
+        result: opts.verifyResult ?? { approved: true, errors: [] },
+        authorization: auth,
+      }),
+    },
+    executionLog: {
+      record: vi.fn(),
+    },
+  } as unknown as SharedState;
+}
+
+function mockTool(profile: string): DiscoveredTool {
+  return {
+    originalName: 'stripe_charge',
+    namespacedName: 'stripe__stripe_charge',
+    integrationId: 'stripe',
+    description: 'Charge a card',
+    inputSchema: {},
+    gating: {
+      profile,
+      executionMapping: { amount: 'amount', currency: 'currency' },
+      staticExecution: { action_type: 'charge' },
+    },
+  };
+}
+
+function mockIntegrationManager(): IntegrationManager {
+  return {
+    callTool: vi.fn().mockResolvedValue({
+      content: [{ type: 'text', text: 'Payment processed' }],
+    }),
+  } as unknown as IntegrationManager;
+}
+
+describe('createGatedToolHandler — SP receipt integration', () => {
+  it('proxies tool call when SP returns receipt', async () => {
+    const postReceipt = vi.fn().mockResolvedValue({ receipt: { id: 'r1' } });
+    const state = mockGatedState({ postReceipt });
+    const im = mockIntegrationManager();
+    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+
+    const result = await handler({ amount: 50, currency: 'EUR' });
+
+    expect(postReceipt).toHaveBeenCalledOnce();
+    expect(postReceipt).toHaveBeenCalledWith(expect.objectContaining({
+      attestationHash: 'sha256:abc',
+      profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
+      path: 'spend-routine',
+      action: 'charge',
+    }));
+    expect((im.callTool as ReturnType<typeof vi.fn>)).toHaveBeenCalledOnce();
+    expect(result.content[0].text).toBe('Payment processed');
+  });
+
+  it('blocks tool call when SP rejects with 403', async () => {
+    const postReceipt = vi.fn().mockRejectedValue(
+      new SPReceiptError('Daily limit exceeded', 403, { error: 'Daily limit exceeded' }),
+    );
+    const state = mockGatedState({ postReceipt });
+    const im = mockIntegrationManager();
+    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+
+    const result = await handler({ amount: 50, currency: 'EUR' });
+
+    expect(postReceipt).toHaveBeenCalledOnce();
+    expect((im.callTool as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('Blocked by SP');
+    expect(result.content[0].text).toContain('Daily limit exceeded');
+  });
+
+  it('blocks tool call when SP is unreachable (fail closed)', async () => {
+    const postReceipt = vi.fn().mockRejectedValue(new Error('fetch failed'));
+    const state = mockGatedState({ postReceipt });
+    const im = mockIntegrationManager();
+    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+
+    const result = await handler({ amount: 50, currency: 'EUR' });
+
+    expect(postReceipt).toHaveBeenCalledOnce();
+    expect((im.callTool as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('SP unavailable');
+    expect(result.content[0].text).toContain('fetch failed');
   });
 });

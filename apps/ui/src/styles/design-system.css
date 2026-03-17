@@ -189,6 +189,72 @@ code {
 
 .nav-logout:hover { color: var(--text-primary); }
 
+/* Domain Switcher (TopNav) */
+.domain-switcher {
+  position: relative;
+}
+
+.domain-switcher-btn {
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+}
+
+.domain-switcher-btn:hover {
+  color: var(--accent);
+}
+
+.domain-switcher-arrow {
+  font-size: 0.6rem;
+  color: var(--text-tertiary);
+}
+
+.domain-switcher-menu {
+  position: absolute;
+  top: calc(100% + 0.375rem);
+  right: 0;
+  min-width: 10rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  z-index: 200;
+  padding: 0.25rem;
+}
+
+.domain-switcher-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.domain-switcher-item:hover {
+  background: var(--accent-subtle);
+  color: var(--text-primary);
+}
+
+.domain-switcher-item.active {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 /* ══════════════════════════════════════════════
    SIDEBAR
    ══════════════════════════════════════════════ */

@@ -7,6 +7,12 @@
 
 import type { IntegrationManager, DiscoveredTool } from './integration-manager';
 import type { SharedState, EnrichedAuthorization } from './shared-state';
+import { SPReceiptError } from './sp-client';
+
+/** Match a short profile name (e.g. "spend") against a full qualified ID (e.g. "github.com/.../spend@0.3") */
+export function profileMatches(profileId: string, shortName: string): boolean {
+  return profileId === shortName || profileId.includes('/' + shortName + '@') || profileId.endsWith('/' + shortName);
+}
 
 type ToolResult = {
   content: Array<{ type: string; text: string }>;
@@ -55,7 +61,7 @@ export function createGatedToolHandler(
     // Find all active authorizations matching this profile
     const auths = state.getEnrichedAuthorizations();
     const matchingAuths = auths.filter(
-      a => a.complete && a.profileId.startsWith(profile),
+      a => a.complete && profileMatches(a.profileId, profile),
     );
 
     if (matchingAuths.length === 0) {
@@ -75,6 +81,31 @@ export function createGatedToolHandler(
       const { result } = await state.gatekeeper.verifyExecution(auth.path, execution);
 
       if (result.approved) {
+        // Request receipt from SP (pre-flight — fail closed)
+        try {
+          await state.spClient.postReceipt({
+            attestationHash: auth.frameHash,
+            profileId: auth.profileId,
+            path: auth.path,
+            action: String(execution.action_type ?? tool.originalName),
+            executionContext: { ...execution },
+            amount: typeof execution.amount === 'number' ? execution.amount : undefined,
+          });
+        } catch (err) {
+          if (err instanceof SPReceiptError && err.statusCode === 403) {
+            // SP rejected — limit exceeded or revoked
+            return {
+              content: [{ type: 'text', text: `Blocked by SP: ${err.message}` }],
+              isError: true,
+            };
+          }
+          // SP unreachable — fail closed
+          return {
+            content: [{ type: 'text', text: `SP unavailable — tool call blocked. ${err instanceof Error ? err.message : ''}` }],
+            isError: true,
+          };
+        }
+
         // Record execution in log for cumulative tracking
         state.executionLog.record({
           profileId: auth.profileId,
@@ -124,10 +155,10 @@ export function buildProxiedToolDescription(
 
   const auths = state.getEnrichedAuthorizations();
   const matching = auths.filter(
-    a => a.complete && a.profileId.startsWith(tool.gating!.profile!),
+    a => a.complete && profileMatches(a.profileId, tool.gating!.profile!),
   );
   const pending = auths.filter(
-    a => !a.complete && a.profileId.startsWith(tool.gating!.profile!),
+    a => !a.complete && profileMatches(a.profileId, tool.gating!.profile!),
   );
 
   if (matching.length > 0) {

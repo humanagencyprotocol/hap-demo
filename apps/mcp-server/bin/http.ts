@@ -8,6 +8,7 @@
  *
  * Environment variables:
  * - HAP_SP_URL — SP server URL (default: https://www.humanagencyprotocol.com)
+ * - HAP_SP_API_KEY — SP API key for receipt requests (optional)
  * - HAP_MCP_PORT — HTTP port (default: 3030)
  */
 
@@ -30,6 +31,11 @@ const port = parseInt(process.env.HAP_MCP_PORT ?? '3030', 10);
 // ─── Shared state (one instance for all connections) ───────────────────────
 
 const state = new SharedState(spUrl);
+
+const spApiKey = process.env.HAP_SP_API_KEY ?? '';
+if (spApiKey) {
+  state.spClient.setApiKey(spApiKey);
+}
 
 // ─── Service credentials held in memory for connector use ──────────────────
 
@@ -105,9 +111,10 @@ function internalOnly(req: Request, res: Response, next: NextFunction): void {
 // ─── Internal endpoints (control-plane → MCP) ─────────────────────────────
 
 app.post('/internal/configure', internalOnly, (req: Request, res: Response) => {
-  const { sessionCookie, vaultKeyHex } = req.body as {
+  const { sessionCookie, vaultKeyHex, apiKey } = req.body as {
     sessionCookie?: string;
     vaultKeyHex?: string;
+    apiKey?: string;
   };
   if (!sessionCookie) {
     res.status(400).json({ error: 'Missing sessionCookie' });
@@ -119,6 +126,11 @@ app.post('/internal/configure', internalOnly, (req: Request, res: Response) => {
   if (vaultKeyHex) {
     state.gateStore.setVaultKey(Buffer.from(vaultKeyHex, 'hex'));
     console.error('[HAP MCP] Vault key configured — gate store encryption active');
+  }
+
+  if (apiKey) {
+    state.spClient.setApiKey(apiKey);
+    console.error('[HAP MCP] SP API key configured by control-plane');
   }
 
   res.json({ ok: true });
@@ -316,14 +328,14 @@ app.all('/mcp', async (req: Request, res: Response) => {
 
       const { server, refreshTools, registerProxiedTools } = createMcpServer(state, integrationManager);
       await server.connect(transport);
+      await transport.handleRequest(req, res, req.body);
 
-      if (transport.sessionId) {
+      // Register session after handleRequest (sessionId is assigned during initialize)
+      if (transport.sessionId && !streamableSessions.has(transport.sessionId)) {
         streamableSessions.set(transport.sessionId, transport);
         activeSessions.set(transport.sessionId, { refreshTools, registerProxiedTools });
         console.error(`[HAP MCP] Streamable session ${transport.sessionId}`);
       }
-
-      await transport.handleRequest(req, res, req.body);
       return;
     }
 

@@ -35,10 +35,26 @@ export interface SPPendingItem {
   remaining_seconds: number | null;
 }
 
+export class SPReceiptError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly body: Record<string, unknown>,
+  ) {
+    super(message);
+    this.name = 'SPReceiptError';
+  }
+}
+
 export class SPClient {
   private sessionCookie = '';
+  private apiKey = '';
 
   constructor(private baseUrl: string) {}
+
+  setApiKey(key: string): void {
+    this.apiKey = key;
+  }
 
   setSessionCookie(cookie: string): void {
     this.sessionCookie = cookie;
@@ -53,6 +69,10 @@ export class SPClient {
 
     if (this.sessionCookie) {
       headers['Cookie'] = this.sessionCookie;
+    }
+
+    if (this.apiKey) {
+      headers['X-API-Key'] = this.apiKey;
     }
 
     return globalThis.fetch(url, {
@@ -87,5 +107,29 @@ export class SPClient {
     const res = await this.fetch(`/api/attestations/pending?domain=${encodeURIComponent(domain)}`);
     if (!res.ok) throw new Error(`SP pending request failed: ${res.status}`);
     return res.json() as Promise<SPPendingItem[]>;
+  }
+
+  /**
+   * Request a signed receipt from the SP (pre-flight check before tool execution).
+   * The SP enforces group-level limits and returns a signed receipt on success.
+   */
+  async postReceipt(data: {
+    attestationHash: string;
+    profileId: string;
+    path: string;
+    action: string;
+    executionContext: Record<string, unknown>;
+    amount?: number;
+  }): Promise<{ receipt: Record<string, unknown> }> {
+    const res = await this.fetch('/api/sp/receipt', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({})) as Record<string, unknown>;
+      const error = (body.error as string) ?? `SP receipt request failed: ${res.status}`;
+      throw new SPReceiptError(error, res.status, body);
+    }
+    return res.json() as Promise<{ receipt: Record<string, unknown> }>;
   }
 }

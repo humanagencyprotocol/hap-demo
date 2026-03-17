@@ -1,3 +1,4 @@
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../hooks/useTheme';
 
@@ -7,8 +8,67 @@ const THEME_ICONS: Record<string, string> = {
   dark: '\u263E',
 };
 
+function DomainSwitcher() {
+  const { groups, activeGroup, activeDomain, setActiveContext } = useAuth();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  // Build list of all available contexts: single-domain + each group's domains
+  type ContextOption = { label: string; group: typeof activeGroup; domain: string };
+  const options: ContextOption[] = [];
+
+  // Single domain (no group) — use current activeDomain or 'personal' as fallback
+  options.push({ label: 'personal', group: null, domain: activeDomain || 'personal' });
+
+  for (const g of groups) {
+    for (const d of g.myDomains) {
+      options.push({ label: `${g.name} / ${d}`, group: g, domain: d });
+    }
+  }
+
+  // Don't show switcher if only one option
+  if (options.length <= 1 && groups.length === 0) {
+    return <span>{activeDomain || 'personal'}</span>;
+  }
+
+  const currentLabel = activeGroup
+    ? `${activeGroup.name} / ${activeDomain}`
+    : activeDomain || 'personal';
+
+  return (
+    <div className="domain-switcher" ref={ref}>
+      <button className="domain-switcher-btn" onClick={() => setOpen(!open)}>
+        {currentLabel}
+        <span className="domain-switcher-arrow">{open ? '\u25B4' : '\u25BE'}</span>
+      </button>
+      {open && (
+        <div className="domain-switcher-menu">
+          {options.map((opt, i) => (
+            <button
+              key={i}
+              className={`domain-switcher-item${opt.group?.id === activeGroup?.id && opt.domain === activeDomain ? ' active' : ''}`}
+              onClick={() => { setActiveContext(opt.group, opt.domain); setOpen(false); }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TopNav() {
-  const { user, activeDomain, activeGroup, logout } = useAuth();
+  const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
 
   return (
@@ -24,18 +84,8 @@ export function TopNav() {
             <>
               <span className="user-chip">
                 <strong>{user.name}</strong>
-                {activeDomain && (
-                  <>
-                    <span className="dot" />
-                    <span>{activeDomain}</span>
-                  </>
-                )}
-                {activeGroup && (
-                  <>
-                    <span className="dot" />
-                    <span style={{ color: 'var(--text-tertiary)' }}>{activeGroup.name}</span>
-                  </>
-                )}
+                <span className="dot" />
+                <DomainSwitcher />
               </span>
               <button className="theme-toggle" onClick={toggle} title={`Theme: ${theme}`}>
                 {THEME_ICONS[theme]}
