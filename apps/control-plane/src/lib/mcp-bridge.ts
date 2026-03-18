@@ -32,15 +32,18 @@ export async function configure(sessionCookie: string, vaultKeyHex?: string): Pr
   }
 }
 
-export async function pushGateContent(
-  frameHash: string,
-  path: string,
-  gateContent: { problem: string; objective: string; tradeoffs: string },
-): Promise<void> {
+export async function pushGateContent(data: {
+  frameHash?: string;
+  boundsHash?: string;
+  contextHash?: string;
+  context?: Record<string, string | number>;
+  path: string;
+  gateContent: { problem: string; objective: string; tradeoffs: string };
+}): Promise<void> {
   const res = await fetch(`${MCP_BASE}/internal/gate-content`, {
     method: 'POST',
     headers: internalHeaders(),
-    body: JSON.stringify({ frameHash, path, gateContent }),
+    body: JSON.stringify(data),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: 'Unknown error' }));

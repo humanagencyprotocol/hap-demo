@@ -131,10 +131,10 @@ Health check:     GET  http://localhost:3030/health
 
 | Document | Contents |
 |---|---|
-| [Authorization Flow](docs/authorization-flow.md) | Gate wizard, mandate brief, what the agent sees |
-| [Security Model](docs/security.md) | Enforcement layers, gate content privacy, what's real vs. mocked |
-| [Architecture](docs/architecture.md) | Services, tools, profiles, project structure, protocol compliance |
-| [Development](docs/development.md) | Local dev setup, env vars, Docker, testing |
+| [Authorization Flow](docs/authorization-flow.md) | Data flow, privacy model, gate wizard steps, tool execution, agent context, revocation |
+| [Security Model](docs/security.md) | Enforcement layers, verification checks, privacy model, encryption, fail-closed design |
+| [Architecture](docs/architecture.md) | System overview, services, internal communication, data storage, bounds/context model, project structure |
+| [Development](docs/development.md) | Local dev setup (with local or live SP), env vars, Docker, testing, related repos |
 
 ---
 

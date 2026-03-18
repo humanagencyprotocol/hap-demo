@@ -92,13 +92,16 @@ app.use('/mcp', jsonParser, authGuard, createMCPRouter());
 // Gate content forward — protected
 app.post('/gate-content', jsonParser, authGuard, async (req: Request, res: Response) => {
   try {
-    const { frameHash, path, gateContent } = req.body as {
-      frameHash: string;
+    const { frameHash, boundsHash, contextHash, context, path, gateContent } = req.body as {
+      frameHash?: string;
+      boundsHash?: string;
+      contextHash?: string;
+      context?: Record<string, string | number>;
       path: string;
       gateContent: { problem: string; objective: string; tradeoffs: string };
     };
 
-    await pushGateContent(frameHash, path, gateContent);
+    await pushGateContent({ frameHash, boundsHash, contextHash, context, path, gateContent });
     res.json({ ok: true });
   } catch (err) {
     console.error('[Control Plane] Gate content forward error:', err);

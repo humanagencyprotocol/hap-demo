@@ -1,124 +1,195 @@
 # Architecture
 
+## System Overview
+
+The HAP Gateway is a local runtime that sits between AI agents and external tools. It enforces human-defined authorization bounds on every tool call through cryptographic verification and SP-issued receipts.
+
+```
+Human (Browser)                              AI Agent (MCP client)
+      |                                             |
+      v                                             v
++----------------+                          +----------------+
+| Control Plane  |--- /internal/* --------->| MCP Server     |
+| :3000          |   (loopback only)        | :3030          |
+|                |                          |                |
+| - Auth (login) |                          | - Gatekeeper   |
+| - UI (React)   |                          | - Tool proxy   |
+| - Vault        |                          | - Att. cache   |
+| - SP proxy     |                          | - Gate store   |
+| - Gate content |                          | - Exec. log    |
++----------------+                          +----------------+
+      |                                             |
+      v                                             v
++----------------+                          +----------------+
+| SP (remote)    |                          | Downstream MCP |
+| Attestation    |<-- receipts -------------|  (e.g. Stripe) |
+| signing,       |                          |                |
+| receipts,      |                          | - 28 tools     |
+| revocation     |                          | - stdio        |
++----------------+                          +----------------+
+```
+
 ## Runtime Services
 
-| Port | What it does | Package |
-|---|---|---|
-| **3000** | Admin — serves the UI, handles auth, proxies SP requests, manages vault and gate content | `@hap/control-plane` + `@hap/ui` (React SPA, built and served by the admin server) |
-| **3030** | MCP Gateway — tool proxy with Gatekeeper verification, attestation cache, downstream MCP servers | `@hap/mcp-server` |
-| — | Shared protocol logic — types, frame hashing, attestation verification, Gatekeeper, profiles | `@hap/core` |
+| Port | Service | Package | Responsibility |
+|------|---------|---------|----------------|
+| **3000** | Control Plane | `apps/control-plane` | Serves UI, handles auth, proxies SP requests, manages vault and gate content, forwards credentials to MCP |
+| **3030** | MCP Server | `apps/mcp-server` | Gatekeeper verification, tool proxy, attestation cache, gate store, execution log, agent context |
+| — | hap-core | `packages/hap-core` | Shared protocol logic: types, bounds/context hashing, attestation verification, gatekeeper |
 
-## MCP Tools
+## Internal Communication
 
-Tools are dynamically discovered from downstream MCP servers (e.g., Stripe MCP). The Gatekeeper gates tools based on active authority profiles:
+The control-plane communicates with the MCP server via loopback-only HTTP endpoints:
 
-| Profile | Authority Scope | Example Tools | Gatekeeper Check |
-|---|---|---|---|
-| `spend@0.3` | Financial transactions | create_payment_link, create_invoice_item, create_refund | amount <= amount_max, currency in allowed set, action_type in allowed set |
-| `publish@0.3` | External communications | send_email, send_batch | recipient_count <= recipient_max, channel in allowed set |
-| `ship@0.3` | Deployments | deploy, rollback | target matches authorized scope |
-| `data@0.3` | Data access | query, export | row_limit within bounds |
-| `provision@0.3` | Infrastructure | create_instance, scale | cost within bounds |
+| Endpoint | Direction | Purpose |
+|----------|-----------|---------|
+| `POST /internal/configure` | CP -> MCP | Push session cookie + vault key |
+| `POST /internal/gate-content` | CP -> MCP | Push gate content + context (encrypted storage) |
+| `POST /internal/resync-gates` | CP -> MCP | Re-sync all stored gates with SP attestations |
+| `POST /internal/service-credentials` | CP -> MCP | Push decrypted service credentials (e.g., Stripe API key) |
+| `POST /internal/add-integration` | CP -> MCP | Start a downstream MCP server |
+| `DELETE /internal/remove-integration/:id` | CP -> MCP | Stop a downstream MCP server |
+| `GET /internal/integrations` | CP -> MCP | List running integrations |
 
-Read-only tools (`list-authorizations`, `check-pending-attestations`) are always available.
+These endpoints are restricted to `127.0.0.1` / `::1`. In Docker, both services run in the same container.
+
+## Data Storage
+
+| What | Location | Encrypted | Persists |
+|------|----------|-----------|----------|
+| Gate content (problem, objective, tradeoffs) | `~/.hap/gates.json` or `gates.enc.json` | Yes (with vault key) | Yes |
+| Execution log (tool call history) | `~/.hap/execution-log.json` or `.enc.json` | Yes (with vault key) | Yes |
+| Integration configs (Stripe, etc.) | `~/.hap/integrations.json` | No | Yes |
+| Service credentials (API keys) | `~/.hap/vault.enc.json` | Yes (PBKDF2 from SP API key) | Yes |
+| Attestation cache | In-memory | No | No (re-synced on login) |
+| Context content | In gate store | Yes (with vault key) | Yes |
+| Organization context | `~/.hap/context.md` | No (user-maintained) | Yes |
+
+## Bounds and Context (v0.4)
+
+The v0.3 "frame" is replaced by two concepts:
+
+**Bounds** (`boundsSchema` in profile) — enforceable constraints:
+- Sent to SP for storage and receipt enforcement
+- Contains: `profile`, `path`, numeric `_max` limits
+- Hashed as `bounds_hash` in attestation
+
+**Context** (`contextSchema` in profile) — operational details:
+- **Never sent to SP** — only `context_hash` leaves local custody
+- Contains: `currency`, `action_type`, `target_env`, `app`, etc.
+- Stored locally in gate store, encrypted at rest
+- Gatekeeper verifies `context_hash` and enforces enum constraints locally
 
 ## Profiles
 
-**`spend@0.3`** — Financial transactions
+Profiles define what an authorization controls. Each profile has:
+- `boundsSchema` — fields the SP enforces (numeric limits)
+- `contextSchema` — fields the gatekeeper enforces locally (enums, operational details)
+- `executionContextSchema` — how tool arguments map to verification fields
+- `executionPaths` — which domain owners must attest
+- `toolGating` — how downstream MCP tools map to execution context
+
+### Spend Profile (spend@0.4)
+
+| | Bounds (-> SP) | Context (local) |
+|---|---|---|
+| Fields | amount_max, amount_daily_max, amount_monthly_max, transaction_count_daily_max | currency, action_type |
+| Enforcement | SP checks in receipts | Gatekeeper checks locally |
 
 | Path | Required Domains | Default TTL |
-|---|---|---|
+|------|-----------------|-------------|
 | `spend-routine` | finance | 24 hours |
 | `spend-reviewed` | finance + compliance | 4 hours |
 
-Bounds: `amount_max` (number, max), `currency` (string, enum), `action_type` (string, enum)
+### Tool Gating
 
-**`publish@0.3`** — External communications
+Tools discovered from downstream MCP servers are classified by the profile's `toolGating`:
 
-| Path | Required Domains | Default TTL |
-|---|---|---|
-| `publish-transactional` | engineering | 24 hours |
-| `publish-marketing` | marketing + product | 2 hours |
+| Classification | Example | Behavior |
+|----------------|---------|----------|
+| **Gated** (explicit override) | `create_payment_link`, `create_refund` | Execution mapping applied, gatekeeper + SP receipt required |
+| **Default-gated** | `list_products`, `create_customer` | Default staticExecution applied (e.g., `action_type: "read"`) |
+| **Read-only** (null override) | `retrieve_balance`, `list_invoices` | No authorization needed, always available |
 
-Bounds: `recipient_max` (number, max), `channel` (string, enum), `audience` (string, enum), `scope` (string, enum)
+## Agent Context (Two-Tier Model)
+
+### Tier 1: Mandate Brief
+
+Loaded as MCP `instructions` when the agent connects. Compact format:
+
+```
+[spend-routine] spend@0.4 (45 min remaining)
+  Bounds: amount_max: 100, amount_daily_max: 500, ...
+  Usage: $234/$500 daily, 8/20 tx
+  3 gated tools, 19 read-only — call list-authorizations(domain: "spend") for details
+```
+
+### Tier 2: list-authorizations
+
+On-demand detail per domain. Returns: full bounds, live consumption, gate content, capability map (gated/read-only/default-gated tools with execution mappings).
+
+This prevents wasting context tokens on domains irrelevant to the current task.
 
 ## Project Structure
 
 ```
 hap-gateway/
-├── apps/
-│   ├── control-plane/         # Admin server (:3000) — serves UI, auth,
-│   │   └── src/               #   SP proxy, vault, gate content routing
-│   │       ├── index.ts       # Server setup, SP proxy, gate-content routing
-│   │       ├── routes/
-│   │       │   ├── auth.ts    # Login/logout via SP session
-│   │       │   └── vault.ts   # Credential storage (AES-256-GCM)
-│   │       └── lib/
-│   │           ├── mcp-bridge.ts  # HTTP client to MCP /internal/* endpoints
-│   │           └── vault.ts       # AES-256-GCM encrypted vault
-│   │
-│   ├── mcp-server/            # MCP Gateway (:3030) — Gatekeeper + tool proxy
-│   │   ├── bin/http.ts        # Express server, SSE + Streamable HTTP transports
-│   │   └── src/
-│   │       ├── index.ts       # MCP server factory, tool registration
-│   │       ├── tools/
-│   │       │   ├── authorizations.ts  # list-authorizations tool handler
-│   │       │   └── pending.ts         # check-pending-attestations tool handler
-│   │       └── lib/
-│   │           ├── gatekeeper.ts        # MCPGatekeeper — verification wrapper
-│   │           ├── sp-client.ts         # SP HTTP client with session cookie
-│   │           ├── attestation-cache.ts # In-memory cache with TTL eviction
-│   │           ├── gate-store.ts        # Local gate content persistence
-│   │           ├── mandate-brief.ts     # Agent system instructions builder
-│   │           ├── gate-content.ts      # SHA-256 hashing + hash verification
-│   │           └── shared-state.ts      # Singleton state container
-│   │
-│   └── ui/                    # React frontend (built → served by admin server)
-│       └── src/
-│           ├── App.tsx        # Routes + auth guard
-│           ├── contexts/AuthContext.tsx   # Session state
-│           ├── pages/
-│           │   ├── LoginPage.tsx          # API key login
-│           │   ├── DashboardPage.tsx      # Overview + quick actions
-│           │   ├── AgentNewPage.tsx       # Step 1: profile/path selection
-│           │   ├── GateWizardPage.tsx     # Steps 2-5: bounds + gate questions
-│           │   ├── AgentReviewPage.tsx    # Step 6: review + commit
-│           │   ├── DeployReviewPage.tsx   # Deploy gate flow (PR-based)
-│           │   ├── GroupsPage.tsx         # Group management
-│           │   ├── AuditPage.tsx          # Audit trail
-│           │   └── OnboardingPage.tsx     # First-run setup
-│           ├── components/               # Reusable UI components
-│           ├── lib/
-│           │   ├── sp-client.ts          # API client (all requests via /api proxy)
-│           │   └── frame.ts             # Browser-side frame hashing (SubtleCrypto)
-│           └── styles/design-system.css  # CSS custom properties, dark/light themes
-│
-├── packages/
-│   └── hap-core/              # Shared protocol logic
-│       └── src/
-│           ├── types.ts       # Protocol types (attestation, profile, gatekeeper)
-│           ├── frame.ts       # Frame canonicalization + SHA-256 hashing
-│           ├── attestation.ts # Blob encoding/decoding, EdDSA verification
-│           ├── gatekeeper.ts  # §8.6 verification: signature, frame, TTL, domains, bounds
-│           └── profiles/      # Profile definitions
-│
-├── docs/                      # Detailed documentation
-├── Dockerfile                 # Two-stage build, tini for PID 1
-├── docker-compose.yml         # Single-service deployment
-├── entrypoint.sh              # Starts MCP server + Control Plane
-└── pnpm-workspace.yaml
++-- apps/
+|   +-- control-plane/          # Admin server (:3000)
+|   |   +-- src/
+|   |       +-- index.ts        # Express server, SP proxy, gate-content routing
+|   |       +-- routes/
+|   |       |   +-- auth.ts     # Login/logout, credential re-sync
+|   |       |   +-- vault.ts    # Credential CRUD (AES-256-GCM)
+|   |       +-- lib/
+|   |           +-- mcp-bridge.ts   # HTTP client to MCP /internal/*
+|   |           +-- vault.ts        # Vault encryption (PBKDF2 + AES-256-GCM)
+|   |
+|   +-- mcp-server/             # MCP Gateway (:3030)
+|   |   +-- bin/http.ts         # Express server, SSE + Streamable HTTP, internal endpoints
+|   |   +-- src/
+|   |       +-- index.ts        # MCP server factory, tool registration, JSON Schema -> Zod
+|   |       +-- tools/
+|   |       |   +-- authorizations.ts   # list-authorizations (compact + domain detail)
+|   |       |   +-- pending.ts          # check-pending-attestations
+|   |       +-- lib/
+|   |           +-- gatekeeper.ts       # Wraps hap-core verify(), resolves bounds/context
+|   |           +-- tool-proxy.ts       # Gated tool handler, SP receipt pre-flight
+|   |           +-- sp-client.ts        # SP HTTP client (attestations, receipts, pubkey)
+|   |           +-- attestation-cache.ts  # In-memory cache with TTL eviction
+|   |           +-- gate-store.ts       # Persistent gate content + context (encrypted)
+|   |           +-- execution-log.ts    # Persistent execution history (encrypted)
+|   |           +-- shared-state.ts     # Singleton: SP client, cache, gate store, log
+|   |           +-- mandate-brief.ts    # Builds compact agent system instructions
+|   |           +-- consumption.ts      # Resolves cumulative state from execution log
+|   |           +-- context-loader.ts   # Reads ~/.hap/context.md for org context
+|   |           +-- integration-manager.ts  # Spawns/manages downstream MCP servers
+|   |           +-- integration-registry.ts # Persists integration configs
+|   |           +-- profile-loader.ts   # Loads profiles from hap-profiles directory
+|   |
+|   +-- ui/                     # React frontend (built, served by control-plane)
+|       +-- src/
+|           +-- pages/
+|           |   +-- AgentNewPage.tsx       # Step 1: profile/path selection
+|           |   +-- GateWizardPage.tsx     # Steps 2-5: bounds + context + gate questions
+|           |   +-- AgentReviewPage.tsx    # Step 6: review, attest, push gate content
+|           +-- components/
+|           |   +-- BoundsEditor.tsx       # Renders bounds + context fields from profile schema
+|           +-- lib/
+|               +-- frame.ts              # Browser-side hashing (SubtleCrypto)
+|               +-- sp-client.ts          # API client (proxied through control-plane)
+|
++-- packages/
+|   +-- hap-core/               # Shared protocol logic (also at github.com/humanagencyprotocol/hap-core)
+|       +-- src/
+|           +-- types.ts        # All protocol types
+|           +-- frame.ts        # Bounds/context canonicalization + SHA-256 hashing
+|           +-- attestation.ts  # Ed25519 signing/verification, blob encoding
+|           +-- gatekeeper.ts   # Full verification: signature, TTL, domains, hashes, bounds
+|           +-- profiles/       # Profile registry
+|
++-- docs/                       # This documentation
++-- Dockerfile                  # Two-stage build, tini for PID 1
++-- docker-compose.yml          # Single-container deployment
++-- entrypoint.sh               # Starts both services
 ```
-
-## Protocol Compliance
-
-This gateway implements [HAP v0.3](https://humanagencyprotocol.org/review).
-
-| Spec Section | Implementation |
-|---|---|
-| §4 Profiles | `spend@0.3`, `publish@0.3`, `ship@0.3`, `data@0.3`, `provision@0.3` with field constraints |
-| §5 Frames | Canonical frame hashing (SHA-256 of key-ordered fields) |
-| §6 Attestations | Ed25519 signatures, TTL enforcement, gate content hashes |
-| §7 Domains | Role-based attestations with per-path required domain lists |
-| §8 Gatekeeper | Stateless verification + runtime bounds enforcement |
-| §8.6.4 | Auth errors checked before bounds (verification order) |
-| §17.1 AI Constraints | Agent operates within human-defined bounds; cannot self-authorize |

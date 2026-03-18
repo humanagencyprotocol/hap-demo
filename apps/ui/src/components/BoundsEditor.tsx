@@ -106,19 +106,29 @@ export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialBoun
               {fieldDef.description && (
                 <div className="hint-text">{fieldDef.description}</div>
               )}
-              {fieldDef.constraint && (
-                <div className="hint-text">
-                  Enforceable: {fieldDef.constraint.enforceable.join(', ')}
-                </div>
+              {'enum' in fieldDef && fieldDef.enum ? (
+                <select
+                  id={`bounds-field-${key}`}
+                  className="form-select"
+                  value={boundsValues[key]}
+                  onChange={e => handleBoundsChange(key, e.target.value)}
+                  disabled={readOnly}
+                >
+                  <option value="">Select...</option>
+                  {fieldDef.enum.map((v: string) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`bounds-field-${key}`}
+                  className="form-input"
+                  type={fieldDef.type === 'number' ? 'number' : 'text'}
+                  value={boundsValues[key]}
+                  onChange={e => handleBoundsChange(key, e.target.value)}
+                  disabled={readOnly}
+                />
               )}
-              <input
-                id={`bounds-field-${key}`}
-                className="form-input"
-                type={fieldDef.type === 'number' ? 'number' : 'text'}
-                value={boundsValues[key]}
-                onChange={e => handleBoundsChange(key, e.target.value)}
-                disabled={readOnly}
-              />
             </div>
           ))}
         </>
@@ -137,14 +147,29 @@ export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialBoun
               {fieldDef.description && (
                 <div className="hint-text">{fieldDef.description}</div>
               )}
-              <input
-                id={`context-field-${key}`}
-                className="form-input"
-                type={fieldDef.type === 'number' ? 'number' : 'text'}
-                value={contextValues[key]}
-                onChange={e => handleContextChange(key, e.target.value)}
-                disabled={readOnly}
-              />
+              {'enum' in fieldDef && fieldDef.enum ? (
+                <select
+                  id={`context-field-${key}`}
+                  className="form-select"
+                  value={contextValues[key]}
+                  onChange={e => handleContextChange(key, e.target.value)}
+                  disabled={readOnly}
+                >
+                  <option value="">Select...</option>
+                  {fieldDef.enum.map((v: string) => (
+                    <option key={v} value={v}>{v}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  id={`context-field-${key}`}
+                  className="form-input"
+                  type={fieldDef.type === 'number' ? 'number' : 'text'}
+                  value={contextValues[key]}
+                  onChange={e => handleContextChange(key, e.target.value)}
+                  disabled={readOnly}
+                />
+              )}
             </div>
           ))}
         </>

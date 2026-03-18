@@ -79,15 +79,7 @@ export function AgentReviewPage() {
         })),
       ]);
 
-      // Push gate content + context to MCP server via control plane
-      await spClient.pushGateContent({
-        boundsHash,
-        contextHash,
-        context: gateData.context,
-        path: authData.path,
-        gateContent: gateData.gateContent,
-      });
-
+      // Attest first (creates the attestation on SP)
       const result = await spClient.attest({
         profile_id: authData.profileId,
         path: authData.path,
@@ -100,6 +92,15 @@ export function AgentReviewPage() {
         execution_context_hash: ecHash,
         group_id: authData.groupId,
         ttl: 1800,
+      });
+
+      // Push gate content + context to MCP server (after attestation exists on SP)
+      await spClient.pushGateContent({
+        boundsHash: result.bounds_hash ?? boundsHash,
+        contextHash,
+        context: gateData.context,
+        path: authData.path,
+        gateContent: gateData.gateContent,
       });
 
       setSuccess({ frameHash: result.bounds_hash ?? result.frame_hash ?? boundsHash, status: result.status });

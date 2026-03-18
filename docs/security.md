@@ -1,44 +1,127 @@
 # Security Model
 
-## What Is Enforced
+## Enforcement Layers
 
-| Layer | Enforcement |
-|---|---|
-| **Attestation signing** | Ed25519 signatures from the external SP. No local signing keys exist. |
-| **Signature verification** | Every tool call triggers full EdDSA signature verification against the SP's public key. |
-| **Frame binding** | Attestations are bound to a specific frame hash. Changing any frame field invalidates the attestation. |
-| **TTL enforcement** | Expired attestations are rejected. The cache auto-evicts them. |
-| **Domain coverage** | Multi-domain paths (e.g., `payment-large` requires `finance` + `compliance`) block execution until all domains attest. |
-| **Bounds checking** | `max` constraints (amount <= limit) and `enum` constraints (value in allowed set) are checked at runtime. |
-| **Verification order** | Auth errors (signature, TTL, domain) are checked before bounds. A forged attestation never reaches bounds logic. |
+Every gated tool call passes through multiple verification layers before execution:
 
-## Gate Content Privacy
+```
+Tool call arrives
+  |
+  v
+1. Attestation verification (local)
+   - Ed25519 signature valid against SP public key?
+   - TTL not expired?
+   - All required domains attested?
+   - bounds_hash matches computed hash of stored bounds?
+   - context_hash matches computed hash of stored context?
+  |
+  v
+2. Bounds checking (local)
+   - Numeric constraints: amount <= amount_max
+   - Enum constraints: currency, action_type match context values
+  |
+  v
+3. SP receipt (remote, pre-flight)
+   - Per-transaction: amount <= bounds.amount_max
+   - Daily cumulative: total <= bounds.amount_daily_max
+   - Monthly cumulative: total <= bounds.amount_monthly_max
+   - Transaction count: count <= bounds.transaction_count_daily_max
+   - Group limits (optional): bounds <= org policy
+   - Revocation check: attestation not revoked
+  |
+  v
+4. Tool execution (downstream MCP server)
+```
 
-Plaintext gate content (what you wrote in problem/objective/tradeoffs) **never leaves your infrastructure**:
+If any layer rejects, the tool call is blocked. The gateway is **fail-closed**: if the SP is unreachable, tool calls are blocked.
 
-- The browser hashes gate content with SHA-256 before sending hashes to the SP
-- Plaintext is sent only to the local MCP server (via the admin server) and stored at `~/.hap/gates.json`
-- The MCP server verifies that the plaintext hashes match what the SP attested to
-- The agent reads gate content from the local store to understand its mandate
+## What Is Verified
+
+| Check | Where | What it prevents |
+|-------|-------|-----------------|
+| Ed25519 signature | Gatekeeper (local) | Forged or tampered attestations |
+| TTL expiry | Gatekeeper (local) | Use of expired authorizations |
+| Domain coverage | Gatekeeper (local) | Execution without required domain owner approval |
+| Bounds hash | Gatekeeper (local) | Modification of bounds after attestation |
+| Context hash | Gatekeeper (local) | Modification of context after attestation |
+| Per-tx limits | SP (receipt) | Individual transactions exceeding authorized ceiling |
+| Cumulative limits | SP (receipt) | Total spend exceeding daily/monthly bounds |
+| Revocation | SP (receipt) | Continued use of revoked authorization |
+| Group limits | SP (receipt, optional) | Authorization bounds exceeding org policy |
+
+## Privacy Model
+
+### What the SP sees
+
+The SP receives and stores:
+- **Bounds** — numeric limits and structural identifiers (`amount_max: 100`, `profile`, `path`)
+- **Bounds hash** — SHA-256 of canonical bounds
+- **Context hash** — SHA-256 of canonical context (hash only, never content)
+- **Gate content hashes** — SHA-256 of problem/objective/tradeoffs (hashes only)
+- **Attestation** — signed blob with all hashes
+- **Execution receipts** — amount, action, cumulative state per tool call
+
+### What the SP never sees
+
+- **Context content** — `currency: USD`, `action_type: charge`, `target_env: staging.acme.internal`
+- **Gate content plaintext** — the human's problem statement, objective, tradeoff assessment
+- **Tool call details** — what specific tool was called, what arguments were passed (beyond amount/action)
+- **Agent conversation** — what the agent discussed with the human before the call
+
+### What stays local (MCP server)
+
+Stored on disk at `~/.hap/` (or `$HAP_DATA_DIR`), encrypted with vault key when available:
+
+- Gate content plaintext (problem, objective, tradeoffs)
+- Context content (currency, action_type, target_env, etc.)
+- Execution log (tool call history for cumulative tracking)
+- Service credentials (Stripe API key, etc.)
+
+The vault key is derived from the human's SP API key via PBKDF2 (100,000 iterations, SHA-256). It exists in memory only while the session is active.
+
+## Encryption at Rest
+
+| File | Contents | Encryption |
+|------|----------|------------|
+| `gates.json` / `gates.enc.json` | Gate content + context | AES-256-GCM (with vault key) |
+| `execution-log.json` / `.enc.json` | Execution history | AES-256-GCM (with vault key) |
+| `vault.enc.json` | Service credentials (API keys) | AES-256-GCM (PBKDF2 derived key) |
+| `integrations.json` | Integration configs (no secrets) | Plaintext |
+| `context.md` | Organization context (human-maintained) | Plaintext |
+
+When a vault key is set, plaintext files are migrated to encrypted versions and the plaintext is deleted.
 
 ## Internal Endpoint Protection
 
-The MCP server exposes `/internal/*` endpoints for the admin server to push session configuration and gate content. These are restricted to loopback IP (`127.0.0.1`, `::1`) — only the co-located admin server can call them.
+The MCP server exposes `/internal/*` endpoints for the control-plane:
+
+- **Loopback only** — restricted to `127.0.0.1`, `::1`, `::ffff:127.0.0.1`
+- **Shared secret** (optional) — `HAP_INTERNAL_SECRET` env var, validated via `X-Internal-Secret` header
+- In Docker, both services run in the same container — loopback is sufficient
 
 ## Authentication
 
-Session-based authentication via the external SP. The admin server proxies auth requests, rewrites cookies for localhost compatibility, and pushes the session cookie to the MCP server so it can make authenticated SP API calls on behalf of the logged-in user.
+The gateway does not authenticate agents directly. Authentication flows through the SP:
 
-## What Is Real vs. What Is Mocked
+1. Human enters SP API key in the control-plane UI
+2. Control-plane validates key against SP, gets session cookie
+3. Control-plane derives vault key from API key (PBKDF2)
+4. Session cookie + vault key pushed to MCP server via `/internal/configure`
+5. MCP server uses session cookie for SP API calls (attestation sync, receipts)
 
-| Concern | Status |
-|---|---|
-| Attestation signing (EdDSA) | Real — external SP |
-| Gatekeeper verification | Real — full signature + bounds checking |
-| Gate content hashing | Real — SHA-256 (browser + server) |
-| Session authentication | Real — API key exchange with SP |
-| Internal endpoint protection | Real — loopback-only middleware |
-| Payment execution | **Mock** — returns `TXN-000001` style IDs |
-| Email sending | **Mock** — returns `MSG-000001` style IDs |
+The SP API key never reaches the browser after login. The control-plane holds it server-side.
 
-The protocol enforcement is real. The connectors that execute after enforcement are mocks — swap them with actual payment processors or email services for production use.
+## Fail-Closed Design
+
+The system is designed to fail closed — if any component is unavailable, execution stops:
+
+| Failure | Result |
+|---------|--------|
+| SP unreachable | Tool calls blocked (no receipt) |
+| SP rejects receipt | Tool call blocked |
+| Attestation expired | Tool hidden from agent, calls rejected |
+| Attestation revoked | Tool calls blocked (SP returns REVOKED) |
+| Wrong vault key | Gate content unreadable, stored gates empty |
+| No authorization | Gated tools disabled in MCP tool list |
+
+There is no degraded mode. Execution without proof is execution without accountability.
