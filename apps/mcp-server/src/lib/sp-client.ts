@@ -13,9 +13,12 @@ export interface SPAttestationResponse {
 
 export interface SPAttestationsResult {
   frame_hash: string;
+  bounds_hash?: string;   // v0.4
+  context_hash?: string;  // v0.4
   attestations: SPAttestationResponse[];
   complete: boolean;
   frame?: Record<string, string | number>;
+  bounds?: Record<string, string | number>;  // v0.4
   profile_id?: string;
   path?: string;
   required_domains?: string[];

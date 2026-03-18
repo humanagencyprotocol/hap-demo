@@ -5,6 +5,12 @@
 import { verify, type GatekeeperRequest, type GatekeeperResult, type ExecutionLogQuery } from '@hap/core';
 import { AttestationCache, type CachedAuthorization } from './attestation-cache';
 
+/** Minimal subset of CachedAuthorization / EnrichedAuthorization needed for context override. */
+interface AuthContextOverride {
+  bounds?: Record<string, string | number>;
+  context?: Record<string, string | number>;
+}
+
 export class MCPGatekeeper {
   constructor(
     private cache: AttestationCache,
@@ -16,11 +22,14 @@ export class MCPGatekeeper {
    *
    * @param authorizationPath - The execution path (e.g., "payment-routine")
    * @param execution - The agent's execution values
+   * @param override - Optional v0.4 fields (bounds, context) from the enriched auth / gate store,
+   *                   used when the context is not present on the SP-cached auth itself.
    * @returns Gatekeeper result + the authorization if found
    */
   async verifyExecution(
     authorizationPath: string,
-    execution: Record<string, string | number>
+    execution: Record<string, string | number>,
+    override?: AuthContextOverride,
   ): Promise<{
     result: GatekeeperResult;
     authorization: CachedAuthorization | null;
@@ -58,11 +67,15 @@ export class MCPGatekeeper {
     // Get SP public key
     const publicKeyHex = await this.cache.getPublicKey();
 
-    // Build Gatekeeper request
+    // Build Gatekeeper request.
+    // v0.4: prefer bounds over frame; use context from override (gate store) or cached auth.
+    const resolvedBounds = override?.bounds ?? auth.bounds ?? auth.frame;
+    const resolvedContext = override?.context ?? auth.context;
     const request: GatekeeperRequest = {
-      frame: auth.frame,
+      frame: resolvedBounds,
       attestations: auth.attestations.map(a => a.blob),
       execution,
+      ...(resolvedContext ? { context: resolvedContext } : {}),
     };
 
     const result = await verify(request, publicKeyHex, undefined, this.executionLog);

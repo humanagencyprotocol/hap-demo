@@ -20,9 +20,12 @@ export interface GateContent {
 
 export interface GateEntry {
   frameHash: string;
+  boundsHash?: string;         // v0.4
+  contextHash?: string;        // v0.4
   path: string;
   profileId: string;
   gateContent: GateContent;
+  context?: Record<string, string | number>;  // v0.4 context content (encrypted at rest)
   storedAt: string;
 }
 

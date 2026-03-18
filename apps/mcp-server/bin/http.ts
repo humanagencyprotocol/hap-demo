@@ -138,21 +138,27 @@ app.post('/internal/configure', internalOnly, (req: Request, res: Response) => {
 
 app.post('/internal/gate-content', internalOnly, async (req: Request, res: Response) => {
   try {
-    const { frameHash, path, gateContent } = req.body as {
-      frameHash: string;
+    const { frameHash, boundsHash, contextHash, context, path, gateContent } = req.body as {
+      frameHash?: string;
+      boundsHash?: string;      // v0.4
+      contextHash?: string;     // v0.4
+      context?: Record<string, string | number>;  // v0.4
       path: string;
       gateContent: GateContent;
     };
 
-    if (!frameHash || !path || !gateContent?.problem || !gateContent?.objective || !gateContent?.tradeoffs) {
-      res.status(400).json({ error: 'Missing required fields: frameHash, path, gateContent.{problem,objective,tradeoffs}' });
+    // Accept either frameHash (v0.3) or boundsHash (v0.4); use boundsHash when present
+    const storageHash = boundsHash ?? frameHash;
+
+    if (!storageHash || !path || !gateContent?.problem || !gateContent?.objective || !gateContent?.tradeoffs) {
+      res.status(400).json({ error: 'Missing required fields: frameHash (or boundsHash), path, gateContent.{problem,objective,tradeoffs}' });
       return;
     }
 
     // Sync attestation from SP so we can verify hashes
-    const auth = await state.cache.syncAuthorization(frameHash);
+    const auth = await state.cache.syncAuthorization(storageHash);
     if (!auth) {
-      res.status(404).json({ error: `No attestation found for frame hash ${frameHash}` });
+      res.status(404).json({ error: `No attestation found for frame hash ${storageHash}` });
       return;
     }
 
@@ -163,8 +169,10 @@ app.post('/internal/gate-content', internalOnly, async (req: Request, res: Respo
       return;
     }
 
-    // Store gate content (encrypted if vault key is set)
-    state.setGateContent(path, frameHash, auth.profileId, gateContent);
+    // Store gate content (encrypted if vault key is set), passing v0.4 fields through
+    state.setGateContent(path, storageHash, auth.profileId, gateContent, {
+      boundsHash, contextHash, context,
+    });
     console.error(`[HAP MCP] Gate content accepted for ${path}`);
 
     // Refresh tools on all active MCP sessions
@@ -211,9 +219,15 @@ app.post('/internal/resync-gates', internalOnly, async (_req: Request, res: Resp
   let synced = 0;
   for (const gate of gates) {
     try {
-      const auth = await state.cache.syncAuthorization(gate.frameHash);
+      // Use boundsHash if present (v0.4), otherwise fall back to frameHash (v0.3)
+      const syncHash = gate.boundsHash ?? gate.frameHash;
+      const auth = await state.cache.syncAuthorization(syncHash);
       if (auth) {
-        state.setGateContent(gate.path, gate.frameHash, auth.profileId, gate.gateContent);
+        state.setGateContent(gate.path, syncHash, auth.profileId, gate.gateContent, {
+          boundsHash: gate.boundsHash,
+          contextHash: gate.contextHash,
+          context: gate.context,
+        });
         synced++;
         console.error(`[HAP MCP] Re-synced gate: ${gate.path}`);
       }

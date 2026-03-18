@@ -7,10 +7,14 @@
 import { SPClient, type SPAttestationsResult, type SPPendingItem } from './sp-client';
 
 export interface CachedAuthorization {
-  frameHash: string;
+  frameHash: string;            // v0.3 compat (= boundsHash for v0.4)
+  boundsHash?: string;          // v0.4
+  contextHash?: string;         // v0.4
   profileId: string;
   path: string;
-  frame: Record<string, string | number>;
+  frame: Record<string, string | number>;     // v0.3 compat (= bounds for v0.4)
+  bounds?: Record<string, string | number>;   // v0.4 bounds
+  context?: Record<string, string | number>;  // v0.4 context (from local store)
   attestations: Array<{ domain: string; blob: string; expiresAt: number }>;
   requiredDomains: string[];
   attestedDomains: string[];
@@ -68,11 +72,18 @@ export class AttestationCache {
     const result = await this.spClient.getAttestations(frameHash);
     if (!result.path || !result.profile_id || !result.frame) return null;
 
+    // v0.4: prefer bounds_hash; fall back to frame_hash for v0.3 compat
+    const boundsHash = result.bounds_hash ?? result.frame_hash;
+    const bounds = result.bounds ?? result.frame;
+
     const auth: CachedAuthorization = {
-      frameHash: result.frame_hash,
+      frameHash: boundsHash,           // compat alias
+      boundsHash: result.bounds_hash,  // v0.4 (undefined for v0.3)
+      contextHash: result.context_hash,
       profileId: result.profile_id,
       path: result.path,
-      frame: result.frame,
+      frame: bounds,                   // compat alias
+      bounds: result.bounds,           // v0.4 (undefined for v0.3)
       attestations: result.attestations.map(a => ({
         domain: a.domain,
         blob: a.blob,

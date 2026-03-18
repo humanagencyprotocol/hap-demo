@@ -78,13 +78,17 @@ export function createGatedToolHandler(
     // Try each matching authorization until one passes verification
     const errors: string[] = [];
     for (const auth of matchingAuths) {
-      const { result } = await state.gatekeeper.verifyExecution(auth.path, execution);
+      // Pass v0.4 enriched fields (bounds/context from gate store) to gatekeeper
+      const { result } = await state.gatekeeper.verifyExecution(auth.path, execution, {
+        bounds: auth.bounds,
+        context: auth.context,
+      });
 
       if (result.approved) {
         // Request receipt from SP (pre-flight — fail closed)
         try {
           await state.spClient.postReceipt({
-            attestationHash: auth.frameHash,
+            attestationHash: auth.boundsHash ?? auth.frameHash,  // prefer boundsHash (v0.4)
             profileId: auth.profileId,
             path: auth.path,
             action: String(execution.action_type ?? tool.originalName),
