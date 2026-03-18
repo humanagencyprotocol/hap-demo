@@ -1,48 +1,87 @@
 import { useState } from 'react';
-import type { AgentProfile, AgentFrameParams } from '@hap/core';
+import type { AgentProfile, AgentBoundsParams, AgentContextParams, AgentFrameParams } from '@hap/core';
 
 interface Props {
   profile: AgentProfile;
   pathId: string;
-  onConfirm: (frame: AgentFrameParams) => void;
+  onConfirm: (bounds: AgentBoundsParams, context: AgentContextParams) => void;
   readOnly?: boolean;
+  initialBounds?: AgentBoundsParams;
+  initialContext?: AgentContextParams;
+  // Keep old prop for compat
   initialFrame?: AgentFrameParams;
 }
 
-export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialFrame }: Props) {
-  const constrainedFields = Object.entries(profile.frameSchema.fields)
-    .filter(([key]) => key !== 'profile' && key !== 'path');
+export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialBounds, initialContext, initialFrame }: Props) {
+  const boundsSchema = profile.boundsSchema ?? profile.frameSchema;
+  const contextSchema = profile.contextSchema;
 
-  const initial: Record<string, string> = {};
-  for (const [key, fieldDef] of constrainedFields) {
-    if (initialFrame && initialFrame[key] !== undefined) {
-      initial[key] = String(initialFrame[key]);
+  const boundsFields = boundsSchema
+    ? Object.entries(boundsSchema.fields).filter(([key]) => key !== 'profile' && key !== 'path')
+    : [];
+
+  const contextFields = contextSchema && contextSchema.keyOrder.length > 0
+    ? Object.entries(contextSchema.fields)
+    : [];
+
+  // Seed initial values from initialBounds, then initialFrame (legacy), then defaults
+  const seedBounds = initialBounds ?? initialFrame ?? {};
+  const seedContext = initialContext ?? {};
+
+  const initialBoundsValues: Record<string, string> = {};
+  for (const [key, fieldDef] of boundsFields) {
+    if (seedBounds[key] !== undefined) {
+      initialBoundsValues[key] = String(seedBounds[key]);
     } else {
-      initial[key] = fieldDef.type === 'number' ? '0' : '';
+      initialBoundsValues[key] = fieldDef.type === 'number' ? '0' : '';
     }
   }
 
-  const [values, setValues] = useState<Record<string, string>>(initial);
+  const initialContextValues: Record<string, string> = {};
+  for (const [key, fieldDef] of contextFields) {
+    if (seedContext[key] !== undefined) {
+      initialContextValues[key] = String(seedContext[key]);
+    } else {
+      initialContextValues[key] = fieldDef.type === 'number' ? '0' : '';
+    }
+  }
 
-  const handleChange = (key: string, value: string) => {
-    setValues(prev => ({ ...prev, [key]: value }));
+  const [boundsValues, setBoundsValues] = useState<Record<string, string>>(initialBoundsValues);
+  const [contextValues, setContextValues] = useState<Record<string, string>>(initialContextValues);
+
+  const handleBoundsChange = (key: string, value: string) => {
+    setBoundsValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleContextChange = (key: string, value: string) => {
+    setContextValues(prev => ({ ...prev, [key]: value }));
   };
 
   const handleConfirm = () => {
-    const frame: AgentFrameParams = {
+    const bounds: AgentBoundsParams = {
       profile: profile.id,
       path: pathId,
     };
 
-    for (const [key, fieldDef] of constrainedFields) {
+    for (const [key, fieldDef] of boundsFields) {
       if (fieldDef.type === 'number') {
-        frame[key] = Number(values[key]);
+        bounds[key] = Number(boundsValues[key]);
       } else {
-        frame[key] = values[key];
+        bounds[key] = boundsValues[key];
       }
     }
 
-    onConfirm(frame);
+    const context: AgentContextParams = {};
+
+    for (const [key, fieldDef] of contextFields) {
+      if (fieldDef.type === 'number') {
+        context[key] = Number(contextValues[key]);
+      } else {
+        context[key] = contextValues[key];
+      }
+    }
+
+    onConfirm(bounds, context);
   };
 
   return (
@@ -54,29 +93,62 @@ export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialFram
         Profile: <strong>{profile.id}</strong> &middot; Path: <strong>{pathId}</strong>
       </p>
 
-      {constrainedFields.map(([key, fieldDef]) => (
-        <div className="form-group" key={key}>
-          <label className="form-label" htmlFor={`field-${key}`}>
-            {key}
-          </label>
-          {fieldDef.description && (
-            <div className="hint-text">{fieldDef.description}</div>
-          )}
-          {fieldDef.constraint && (
-            <div className="hint-text">
-              Enforceable: {fieldDef.constraint.enforceable.join(', ')}
+      {boundsFields.length > 0 && (
+        <>
+          <div className="hint-text" style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+            Bounds — sent to SP for enforcement
+          </div>
+          {boundsFields.map(([key, fieldDef]) => (
+            <div className="form-group" key={`bounds-${key}`}>
+              <label className="form-label" htmlFor={`bounds-field-${key}`}>
+                {key}
+              </label>
+              {fieldDef.description && (
+                <div className="hint-text">{fieldDef.description}</div>
+              )}
+              {fieldDef.constraint && (
+                <div className="hint-text">
+                  Enforceable: {fieldDef.constraint.enforceable.join(', ')}
+                </div>
+              )}
+              <input
+                id={`bounds-field-${key}`}
+                className="form-input"
+                type={fieldDef.type === 'number' ? 'number' : 'text'}
+                value={boundsValues[key]}
+                onChange={e => handleBoundsChange(key, e.target.value)}
+                disabled={readOnly}
+              />
             </div>
-          )}
-          <input
-            id={`field-${key}`}
-            className="form-input"
-            type={fieldDef.type === 'number' ? 'number' : 'text'}
-            value={values[key]}
-            onChange={e => handleChange(key, e.target.value)}
-            disabled={readOnly}
-          />
-        </div>
-      ))}
+          ))}
+        </>
+      )}
+
+      {contextFields.length > 0 && (
+        <>
+          <div className="hint-text" style={{ fontWeight: 600, marginTop: '1rem', marginBottom: '0.5rem' }}>
+            Context — stays local, encrypted
+          </div>
+          {contextFields.map(([key, fieldDef]) => (
+            <div className="form-group" key={`context-${key}`}>
+              <label className="form-label" htmlFor={`context-field-${key}`}>
+                {key}
+              </label>
+              {fieldDef.description && (
+                <div className="hint-text">{fieldDef.description}</div>
+              )}
+              <input
+                id={`context-field-${key}`}
+                className="form-input"
+                type={fieldDef.type === 'number' ? 'number' : 'text'}
+                value={contextValues[key]}
+                onChange={e => handleContextChange(key, e.target.value)}
+                disabled={readOnly}
+              />
+            </div>
+          ))}
+        </>
+      )}
 
       <button className="btn btn-primary" onClick={handleConfirm}>
         {readOnly ? 'Next: Gates' : 'Next: Problem Statement'}

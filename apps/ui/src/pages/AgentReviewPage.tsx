@@ -2,14 +2,17 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { spClient } from '../lib/sp-client';
-import { computeFrameHashBrowser, hashGateContent } from '../lib/frame';
+import { computeBoundsHashBrowser, computeContextHashBrowser, hashGateContent } from '../lib/frame';
 import { StepIndicator } from '../components/StepIndicator';
 import { DomainBadge } from '../components/DomainBadge';
-import type { AgentProfile, AgentFrameParams } from '@hap/core';
+import type { AgentProfile, AgentBoundsParams, AgentContextParams, AgentFrameParams } from '@hap/core';
 
 interface GateData {
-  frame: AgentFrameParams;
+  bounds: AgentBoundsParams;
+  context: AgentContextParams;
   gateContent: { problem: string; objective: string; tradeoffs: string };
+  // Keep frame for backward compat with existing session storage
+  frame?: AgentFrameParams;
 }
 
 interface AuthData {
@@ -36,9 +39,18 @@ export function AgentReviewPage() {
     if (!authStored || !gateStored) { navigate('/agent/new'); return; }
 
     const auth: AuthData = JSON.parse(authStored);
-    const gate: GateData = JSON.parse(gateStored);
+    const gate = JSON.parse(gateStored);
+
+    // Normalize stored gate data: support both v0.3 (frame) and v0.4 (bounds/context)
+    const normalizedGate: GateData = {
+      bounds: gate.bounds ?? gate.frame ?? {},
+      context: gate.context ?? {},
+      gateContent: gate.gateContent,
+      frame: gate.frame,
+    };
+
     setAuthData(auth);
-    setGateData(gate);
+    setGateData(normalizedGate);
 
     spClient.getProfile(auth.profileId)
       .then(p => setProfile(p))
@@ -51,7 +63,9 @@ export function AgentReviewPage() {
     setError('');
     try {
       const domain = authData.domain || activeDomain;
-      const frameHash = await computeFrameHashBrowser(gateData.frame, profile);
+
+      const boundsHash = await computeBoundsHashBrowser(gateData.bounds, profile);
+      const contextHash = await computeContextHashBrowser(gateData.context, profile);
 
       const [problemHash, objectiveHash, tradeoffsHash, ecHash] = await Promise.all([
         hashGateContent(gateData.gateContent.problem),
@@ -65,9 +79,11 @@ export function AgentReviewPage() {
         })),
       ]);
 
-      // Push gate content to MCP server via control plane
+      // Push gate content + context to MCP server via control plane
       await spClient.pushGateContent({
-        frameHash,
+        boundsHash,
+        contextHash,
+        context: gateData.context,
         path: authData.path,
         gateContent: gateData.gateContent,
       });
@@ -75,7 +91,9 @@ export function AgentReviewPage() {
       const result = await spClient.attest({
         profile_id: authData.profileId,
         path: authData.path,
-        frame: gateData.frame,
+        bounds: gateData.bounds,
+        bounds_hash: boundsHash,
+        context_hash: contextHash,
         domain,
         did: user.did,
         gate_content_hashes: { problem: problemHash, objective: objectiveHash, tradeoffs: tradeoffsHash },
@@ -84,7 +102,7 @@ export function AgentReviewPage() {
         ttl: 1800,
       });
 
-      setSuccess({ frameHash: result.frame_hash, status: result.status });
+      setSuccess({ frameHash: result.bounds_hash ?? result.frame_hash ?? boundsHash, status: result.status });
       sessionStorage.removeItem('agentAuth');
       sessionStorage.removeItem('agentGate');
     } catch (e) {
@@ -114,8 +132,8 @@ export function AgentReviewPage() {
     );
   }
 
-  const frame = gateData.frame;
-  const boundsEntries = Object.entries(frame).filter(([k]) => k !== 'profile' && k !== 'path');
+  const boundsEntries = Object.entries(gateData.bounds).filter(([k]) => k !== 'profile' && k !== 'path');
+  const contextEntries = Object.entries(gateData.context);
 
   return (
     <>
@@ -144,13 +162,39 @@ export function AgentReviewPage() {
           )}
           <dt>TTL</dt>
           <dd>30 minutes</dd>
-          {boundsEntries.map(([k, v]) => (
-            <span key={k} style={{ display: 'contents' }}>
-              <dt>{k}</dt>
-              <dd>{String(v)}</dd>
-            </span>
-          ))}
         </dl>
+
+        {boundsEntries.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '1rem', marginBottom: '0.25rem' }}>
+              Bounds
+            </div>
+            <dl className="review-grid">
+              {boundsEntries.map(([k, v]) => (
+                <span key={k} style={{ display: 'contents' }}>
+                  <dt>{k}</dt>
+                  <dd>{String(v)}</dd>
+                </span>
+              ))}
+            </dl>
+          </>
+        )}
+
+        {contextEntries.length > 0 && (
+          <>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '1rem', marginBottom: '0.25rem' }}>
+              Context
+            </div>
+            <dl className="review-grid">
+              {contextEntries.map(([k, v]) => (
+                <span key={k} style={{ display: 'contents' }}>
+                  <dt>{k}</dt>
+                  <dd>{String(v)}</dd>
+                </span>
+              ))}
+            </dl>
+          </>
+        )}
 
         <div className="gate-content-block">
           <div className="gate-content-item">

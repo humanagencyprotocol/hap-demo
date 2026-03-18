@@ -4,7 +4,7 @@ import { spClient } from '../lib/sp-client';
 import { StepIndicator } from '../components/StepIndicator';
 import { ContextStrip } from '../components/ContextStrip';
 import { BoundsEditor } from '../components/BoundsEditor';
-import type { AgentProfile, AgentFrameParams } from '@hap/core';
+import type { AgentProfile, AgentBoundsParams, AgentContextParams } from '@hap/core';
 
 const GATE_QUESTIONS = [
   { key: 'problem', label: 'Problem', prompt: 'What problem does this agent authorization solve? Why is it needed right now?' },
@@ -25,7 +25,8 @@ export function GateWizardPage() {
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [step, setStep] = useState(2); // 2=bounds, 3=problem, 4=objective, 5=tradeoffs
-  const [frame, setFrame] = useState<AgentFrameParams | null>(null);
+  const [bounds, setBounds] = useState<AgentBoundsParams | null>(null);
+  const [context, setContext] = useState<AgentContextParams | null>(null);
   const [gateContent, setGateContent] = useState({ problem: '', objective: '', tradeoffs: '' });
   const [loading, setLoading] = useState(true);
 
@@ -45,15 +46,16 @@ export function GateWizardPage() {
       .finally(() => setLoading(false));
   }, [navigate]);
 
-  const boundsString = frame
-    ? Object.entries(frame)
+  const boundsString = bounds
+    ? Object.entries(bounds)
         .filter(([k]) => k !== 'profile' && k !== 'path')
         .map(([k, v]) => `${k} = ${v}`)
         .join(', ')
     : '';
 
-  const handleBoundsConfirm = (f: AgentFrameParams) => {
-    setFrame(f);
+  const handleBoundsConfirm = (b: AgentBoundsParams, c: AgentContextParams) => {
+    setBounds(b);
+    setContext(c);
     setStep(3);
   };
 
@@ -63,7 +65,7 @@ export function GateWizardPage() {
       setAiResponse(null);
     } else {
       // Save gate content and navigate to review
-      sessionStorage.setItem('agentGate', JSON.stringify({ frame, gateContent }));
+      sessionStorage.setItem('agentGate', JSON.stringify({ bounds, context, gateContent }));
       navigate('/agent/review');
     }
   };
@@ -122,7 +124,8 @@ export function GateWizardPage() {
             profile={profile}
             pathId={authData.path}
             onConfirm={handleBoundsConfirm}
-            initialFrame={frame || undefined}
+            initialBounds={bounds || undefined}
+            initialContext={context || undefined}
           />
         </div>
       )}

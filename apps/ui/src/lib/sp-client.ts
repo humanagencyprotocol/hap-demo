@@ -22,7 +22,9 @@ export interface SPGroup {
 
 export interface AttestResponse {
   attestation_id: string;
-  frame_hash: string;
+  frame_hash?: string;    // v0.3
+  bounds_hash?: string;   // v0.4
+  context_hash?: string;  // v0.4
   domain: string;
   blob: string;
   expires_at: number;
@@ -201,7 +203,13 @@ class SPClient {
   async attest(body: {
     profile_id: string;
     path: string;
-    frame: Record<string, string | number>;
+    // v0.3
+    frame?: Record<string, string | number>;
+    // v0.4
+    bounds?: Record<string, string | number>;
+    bounds_hash?: string;
+    context_hash?: string;
+    // common
     domain: string;
     did: string;
     gate_content_hashes: Record<string, string>;
@@ -457,7 +465,14 @@ class SPClient {
 
   // ─── Gate Content ───────────────────────────────────────────────────────
 
-  async pushGateContent(data: { frameHash: string; path: string; gateContent: Record<string, string> }): Promise<void> {
+  async pushGateContent(data: {
+    frameHash?: string;     // v0.3
+    boundsHash?: string;    // v0.4
+    contextHash?: string;   // v0.4
+    context?: Record<string, string | number>;  // v0.4
+    path: string;
+    gateContent: Record<string, string>;
+  }): Promise<void> {
     const res = await this.fetch('/gate-content', {
       method: 'POST',
       body: JSON.stringify(data),
