@@ -16,7 +16,7 @@ import type { AgentProfile } from '../src/types';
 
 const PROFILE_PATH = join(
   import.meta.dirname,
-  '../../hap-profiles/spend/profile.json',
+  '../../../../hap-profiles/spend/profile.json',
 );
 
 const RAW_PROFILE = JSON.parse(readFileSync(PROFILE_PATH, 'utf-8')) as AgentProfile;

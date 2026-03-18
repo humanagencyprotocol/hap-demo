@@ -62,7 +62,8 @@ export function AgentReviewPage() {
     setSubmitting(true);
     setError('');
     try {
-      const domain = authData.domain || activeDomain;
+      // Personal mode (no group): use "owner" as domain. Group mode: use assigned domain.
+      const domain = authData.domain || activeDomain || 'owner';
 
       const boundsHash = await computeBoundsHashBrowser(gateData.bounds, profile);
       const contextHash = await computeContextHashBrowser(gateData.context, profile);
