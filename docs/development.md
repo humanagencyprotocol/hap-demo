@@ -88,7 +88,7 @@ Or manually:
 docker build -t hap-gateway .
 docker run -p 3000:3000 -p 3030:3030 \
   -e HAP_SP_URL=https://www.humanagencyprotocol.com \
-  -v hap-data:/app/data \
+  -v $HOME/.hap:/app/data \
   hap-gateway
 ```
 
