@@ -194,7 +194,11 @@ export interface AgentProfile {
   ttl: { default: number; max: number };
   retention_minimum: number;
 
-  /** Tool gating configuration — how MCP tools map to execution context. */
+  /**
+   * Tool gating configuration — how MCP tools map to execution context.
+   * @deprecated Tool gating now lives in integration manifests (content/integrations/*.json).
+   * Kept for backward compatibility with profiles that still include it.
+   */
   toolGating?: ProfileToolGating;
 }
 

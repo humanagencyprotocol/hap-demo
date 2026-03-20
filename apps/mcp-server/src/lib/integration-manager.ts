@@ -87,11 +87,10 @@ export class IntegrationManager {
     await client.connect(transport);
     console.error(`[IntegrationManager] Connected to ${config.id} (${config.command} ${config.args.join(' ')})`);
 
-    // Discover tools and resolve gating from profile
+    // Discover tools and resolve gating — prefer manifest toolGating over profile's
     const toolsResult = await client.listTools();
-    const profileGating = config.profile
-      ? getProfile(config.profile)?.toolGating ?? null
-      : null;
+    const profileGating = config.toolGating
+      ?? (config.profile ? getProfile(config.profile)?.toolGating ?? null : null);
 
     const tools: DiscoveredTool[] = (toolsResult.tools ?? []).map(tool => {
       const gating = this.resolveToolGating(config.profile, profileGating, tool.name);

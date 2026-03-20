@@ -78,6 +78,7 @@ By default, the gateway connects to `https://www.humanagencyprotocol.com`. Just 
 | `HAP_UI_DIST` | `../../ui/dist` | Path to built UI assets |
 | `HAP_DATA_DIR` | `~/.hap` | Persistent storage directory |
 | `HAP_PROFILES_DIR` | `../../hap-profiles` (relative to cwd) | HAP profiles directory |
+| `HAP_INTEGRATIONS_DIR` | `../../content/integrations` (relative to cwd) | Integration manifests directory |
 
 ## Testing
 

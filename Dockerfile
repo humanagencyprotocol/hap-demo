@@ -25,6 +25,9 @@ COPY --from=build /build/node_modules/ node_modules/
 COPY --from=build /build/packages/ packages/
 COPY --from=build /build/apps/ apps/
 
+# Copy integration manifests
+COPY content/integrations/ content/integrations/
+
 # Create data directory for gate store
 RUN mkdir -p /app/data
 
@@ -42,6 +45,7 @@ ENV HAP_DATA_DIR=/app/data
 ENV HAP_CP_PORT=3000
 ENV HAP_MCP_PORT=3030
 ENV HAP_MCP_INTERNAL_URL=http://127.0.0.1:3030
+ENV HAP_INTEGRATIONS_DIR=/app/content/integrations
 ENV NODE_ENV=production
 
 EXPOSE 3000 3030

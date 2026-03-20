@@ -1,0 +1,67 @@
+{
+  "id": "gmail",
+  "name": "Gmail",
+  "version": "1.0.0",
+  "description": "Send, draft, and read email via Gmail",
+  "icon": "mail",
+  "profile": "email",
+  "mcp": {
+    "command": "npx",
+    "args": ["-y", "@shinzolabs/gmail-mcp@latest"]
+  },
+  "credentials": {
+    "fields": [
+      { "key": "clientId", "label": "Client ID", "type": "text", "placeholder": "From Google Cloud Console" },
+      { "key": "clientSecret", "label": "Client Secret", "type": "password", "placeholder": "OAuth2 client secret" }
+    ],
+    "envMapping": {
+      "CLIENT_ID": "clientId",
+      "CLIENT_SECRET": "clientSecret",
+      "REFRESH_TOKEN": "refreshToken"
+    }
+  },
+  "oauth": {
+    "authUrl": "https://accounts.google.com/o/oauth2/v2/auth",
+    "tokenUrl": "https://oauth2.googleapis.com/token",
+    "scopes": [
+      "https://www.googleapis.com/auth/gmail.modify",
+      "https://www.googleapis.com/auth/gmail.send"
+    ],
+    "credentialKeys": { "clientId": "clientId", "clientSecret": "clientSecret" },
+    "tokenStorage": "refreshToken",
+    "extraParams": { "access_type": "offline", "prompt": "consent" }
+  },
+  "toolGating": {
+    "default": {
+      "executionMapping": {},
+      "staticExecution": { "recipient_count": 0 }
+    },
+    "overrides": {
+      "send_message": {
+        "executionMapping": {
+          "to": "recipient_count"
+        },
+        "staticExecution": {}
+      },
+      "create_draft": {
+        "executionMapping": {
+          "to": "recipient_count"
+        },
+        "staticExecution": {}
+      },
+      "send_draft": {
+        "executionMapping": {},
+        "staticExecution": { "recipient_count": 1 }
+      },
+      "list_messages": null,
+      "get_message": null,
+      "get_attachment": null,
+      "list_drafts": null,
+      "get_draft": null,
+      "delete_draft": null,
+      "list_labels": null,
+      "get_profile": null
+    }
+  },
+  "setupHint": "Create OAuth credentials at Google Cloud Console (enable Gmail API, create OAuth 2.0 Client ID, type: Web application)."
+}

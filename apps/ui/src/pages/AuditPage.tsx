@@ -37,7 +37,7 @@ export function AuditPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Audit Trail</h1>
+        <h1 className="page-title">Agent Receipts</h1>
         <p className="page-subtitle">Authorization and attestation history.</p>
       </div>
 

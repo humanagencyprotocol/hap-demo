@@ -1,0 +1,71 @@
+{
+  "id": "stripe",
+  "name": "Stripe",
+  "version": "1.0.0",
+  "description": "Payments, invoices, and billing",
+  "icon": "card",
+  "profile": "spend",
+  "mcp": {
+    "command": "npx",
+    "args": ["-y", "@stripe/mcp@latest"]
+  },
+  "credentials": {
+    "fields": [
+      { "key": "apiKey", "label": "API Key", "type": "password", "placeholder": "sk_live_..." }
+    ],
+    "envMapping": { "STRIPE_SECRET_KEY": "apiKey" }
+  },
+  "oauth": null,
+  "toolGating": {
+    "default": {
+      "executionMapping": {},
+      "staticExecution": { "action_type": "read" }
+    },
+    "overrides": {
+      "create_payment_link": {
+        "executionMapping": {
+          "unit_amount": { "field": "amount", "divisor": 100 },
+          "currency": "currency"
+        },
+        "staticExecution": { "action_type": "charge" }
+      },
+      "create_price": {
+        "executionMapping": {
+          "unit_amount": { "field": "amount", "divisor": 100 },
+          "currency": "currency"
+        },
+        "staticExecution": { "action_type": "charge" }
+      },
+      "create_invoice_item": {
+        "executionMapping": {
+          "amount": { "field": "amount", "divisor": 100 },
+          "currency": "currency"
+        },
+        "staticExecution": { "action_type": "charge" }
+      },
+      "create_refund": {
+        "executionMapping": {
+          "amount": { "field": "amount", "divisor": 100 }
+        },
+        "staticExecution": { "action_type": "refund" }
+      },
+      "create_subscription": {
+        "executionMapping": {},
+        "staticExecution": { "action_type": "subscribe" }
+      },
+      "cancel_subscription": {
+        "executionMapping": {},
+        "staticExecution": { "action_type": "subscribe" }
+      },
+      "update_subscription": {
+        "executionMapping": {},
+        "staticExecution": { "action_type": "subscribe" }
+      },
+      "retrieve_balance": null,
+      "list_invoices": null,
+      "list_subscriptions": null,
+      "list_payment_methods": null
+    }
+  },
+  "setupHint": "Use a test key (sk_test_...) for development."
+}

@@ -24,6 +24,7 @@ import type { GateContent } from '../src/lib/gate-store';
 import { IntegrationRegistry, type IntegrationConfig } from '../src/lib/integration-registry';
 import { IntegrationManager } from '../src/lib/integration-manager';
 import { loadProfiles } from '../src/lib/profile-loader';
+import { loadManifests, getAllManifests } from '../src/lib/manifest-loader';
 
 const spUrl = process.env.HAP_SP_URL ?? 'https://www.humanagencyprotocol.com';
 const port = parseInt(process.env.HAP_MCP_PORT ?? '3430', 10);
@@ -406,6 +407,10 @@ app.get('/health', (_req: Request, res: Response) => {
   });
 });
 
+app.get('/internal/manifests', internalOnly, (_req: Request, res: Response) => {
+  res.json({ manifests: getAllManifests() });
+});
+
 // ─── Integration startup helpers ────────────────────────────────────────────
 
 /**
@@ -450,8 +455,9 @@ app.listen(port, '0.0.0.0', () => {
   console.error(`[HAP MCP]   Streamable: http://0.0.0.0:${port}/mcp`);
   console.error(`[HAP MCP]   SP server:  ${spUrl}`);
 
-  // Load profiles before starting integrations
+  // Load profiles and integration manifests before starting integrations
   loadProfiles();
+  loadManifests();
 
   // Restore integrations from registry on startup
   startPendingIntegrations().then(() => {

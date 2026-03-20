@@ -9,75 +9,14 @@ import { Router, type Request, type Response } from 'express';
 import type { Vault, ServiceDef } from '../lib/vault';
 import { pushServiceCredentials } from '../lib/mcp-bridge';
 
-// Built-in services that appear by default
-const BUILTIN_SERVICES: ServiceDef[] = [
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    description: 'Payments, invoices, and billing via Stripe MCP',
-    icon: '\u{1F4B3}',
-    tools: ['create_invoice_item', 'create_payment_link', 'create_refund'],
-    profile: 'spend',
-    credFields: [
-      { label: 'API Key', key: 'apiKey', type: 'password', placeholder: 'sk_live_...' },
-    ],
-  },
-  {
-    id: 'gmail',
-    name: 'Gmail',
-    description: 'Send, draft, and read email via Gmail MCP',
-    icon: '\u2709',
-    tools: ['send_message', 'create_draft', 'send_draft', 'list_messages', 'get_message'],
-    profile: 'email',
-    credFields: [
-      { label: 'OAuth configured via gmail-mcp CLI', key: 'oauth', type: 'text', placeholder: 'Run: npx @shinzolabs/gmail-mcp auth' },
-    ],
-  },
-  {
-    id: 'crm',
-    name: 'CRM',
-    description: 'Customer relationship management',
-    icon: '\u{1F4C7}',
-    tools: ['search_contacts', 'update_record'],
-    credFields: [
-      { label: 'Instance URL', key: 'url', type: 'text', placeholder: 'https://your-instance.crm.com' },
-      { label: 'Access Token', key: 'token', type: 'password' },
-    ],
-  },
-  {
-    id: 'monitoring',
-    name: 'Monitoring',
-    description: 'Application performance monitoring',
-    icon: '\u{1F4CA}',
-    tools: ['get_metrics', 'create_alert'],
-    credFields: [
-      { label: 'API Key', key: 'apiKey', type: 'password' },
-      { label: 'Region', key: 'region', type: 'text', placeholder: 'us-east-1' },
-    ],
-  },
-];
-
 export function createVaultRouter(vault: Vault): Router {
   const router = Router();
-
-  // Ensure built-in services exist and credFields stay in sync with code
-  function ensureBuiltinServices(): void {
-    for (const svc of BUILTIN_SERVICES) {
-      const existing = vault.getService(svc.id);
-      if (!existing) {
-        vault.setService(svc.id, svc);
-      } else {
-        vault.setService(svc.id, { ...existing, credFields: svc.credFields });
-      }
-    }
-  }
 
   /**
    * GET /vault/status
    */
   router.get('/status', (_req: Request, res: Response) => {
     const credNames = vault.listCredentials();
-    ensureBuiltinServices();
     const services = vault.listServices();
     res.json({
       initialized: vault.isUnlocked(),
@@ -134,7 +73,6 @@ export function createVaultRouter(vault: Vault): Router {
    * Returns all services (built-in + user-added). No secret values.
    */
   router.get('/services', (_req: Request, res: Response) => {
-    ensureBuiltinServices();
     const services = vault.listServices();
     const credNames = vault.listCredentials();
 

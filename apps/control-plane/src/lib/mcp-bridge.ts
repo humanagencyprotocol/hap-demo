@@ -101,16 +101,42 @@ export async function addIntegration(config: unknown): Promise<unknown> {
   return res.json();
 }
 
-export async function addStripePreset(): Promise<unknown> {
+/**
+ * Activate an integration from its manifest — constructs IntegrationConfig
+ * from manifest fields and sends it to the MCP server.
+ */
+export async function activateIntegration(manifest: {
+  id: string;
+  name: string;
+  mcp: { command: string; args: string[] };
+  credentials: { envMapping: Record<string, string> };
+  profile: string;
+  toolGating?: unknown;
+}): Promise<unknown> {
+  // Construct envKeys by prepending integration ID to each credential key
+  const envKeys: Record<string, string> = {};
+  for (const [envVar, credKey] of Object.entries(manifest.credentials.envMapping)) {
+    envKeys[envVar] = `${manifest.id}.${credKey}`;
+  }
+
   return addIntegration({
-    id: 'stripe',
-    name: 'Stripe',
-    command: 'npx',
-    args: ['-y', '@stripe/mcp@latest'],
-    envKeys: { STRIPE_SECRET_KEY: 'stripe.apiKey' },
-    profile: 'spend',
+    id: manifest.id,
+    name: manifest.name,
+    command: manifest.mcp.command,
+    args: manifest.mcp.args,
+    envKeys,
+    profile: manifest.profile,
+    toolGating: manifest.toolGating,
     enabled: true,
   });
+}
+
+export async function getManifests(): Promise<unknown> {
+  const res = await fetch(`${MCP_BASE}/internal/manifests`, {
+    headers: internalHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch manifests');
+  return res.json();
 }
 
 export async function removeIntegration(id: string): Promise<unknown> {

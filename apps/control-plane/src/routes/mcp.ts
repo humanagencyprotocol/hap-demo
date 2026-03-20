@@ -6,7 +6,8 @@ import { Router, type Request, type Response } from 'express';
 import {
   getIntegrations,
   addIntegration,
-  addStripePreset,
+  activateIntegration,
+  getManifests,
   removeIntegration,
   getMcpHealth,
 } from '../lib/mcp-bridge';
@@ -41,12 +42,34 @@ export function createMCPRouter(): Router {
     }
   });
 
-  router.post('/integrations/preset/stripe', async (_req: Request, res: Response) => {
+  /**
+   * GET /mcp/integrations/manifests — return all integration manifests for UI rendering.
+   */
+  router.get('/integrations/manifests', async (_req: Request, res: Response) => {
     try {
-      const data = await addStripePreset();
+      const data = await getManifests();
       res.json(data);
     } catch (err) {
-      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to add Stripe preset' });
+      res.status(502).json({ error: err instanceof Error ? err.message : 'Failed to fetch manifests' });
+    }
+  });
+
+  /**
+   * POST /mcp/integrations/:id/activate — activate an integration from its manifest.
+   */
+  router.post('/integrations/:id/activate', async (req: Request, res: Response) => {
+    try {
+      // Fetch manifests to find the one requested
+      const manifestsData = await getManifests() as { manifests: Array<{ id: string; name: string; mcp: { command: string; args: string[] }; credentials: { envMapping: Record<string, string> }; profile: string; toolGating?: unknown }> };
+      const manifest = manifestsData.manifests.find((m: { id: string }) => m.id === req.params.id);
+      if (!manifest) {
+        res.status(404).json({ error: `No manifest found for integration "${req.params.id}"` });
+        return;
+      }
+      const data = await activateIntegration(manifest);
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to activate integration' });
     }
   });
 

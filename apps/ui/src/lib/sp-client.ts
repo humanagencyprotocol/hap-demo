@@ -120,6 +120,30 @@ export interface GitHubPullFile {
   patch: string | null;
 }
 
+export interface IntegrationManifest {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  icon: string;
+  profile: string;
+  mcp: { command: string; args: string[] };
+  credentials: {
+    fields: Array<{ key: string; label: string; type: 'text' | 'password'; placeholder?: string }>;
+    envMapping: Record<string, string>;
+  };
+  oauth: {
+    authUrl: string;
+    tokenUrl: string;
+    scopes: string[];
+    credentialKeys: Record<string, string>;
+    tokenStorage: string;
+    extraParams?: Record<string, string>;
+  } | null;
+  toolGating: unknown;
+  setupHint?: string;
+}
+
 export interface McpIntegrationStatus {
   id: string;
   name: string;
@@ -450,8 +474,14 @@ class SPClient {
     return res.json();
   }
 
-  async addMcpStripePreset(): Promise<{ ok: boolean; id: string; tools: string[]; warning?: string }> {
-    const res = await this.fetch('/mcp/integrations/preset/stripe', { method: 'POST' });
+  async getIntegrationManifests(): Promise<{ manifests: IntegrationManifest[] }> {
+    const res = await this.fetch('/mcp/integrations/manifests');
+    if (!res.ok) throw new Error(`Failed to fetch manifests: ${res.status}`);
+    return res.json();
+  }
+
+  async activateIntegration(id: string): Promise<{ ok: boolean; id: string; tools: string[]; warning?: string }> {
+    const res = await this.fetch(`/mcp/integrations/${encodeURIComponent(id)}/activate`, { method: 'POST' });
     if (!res.ok) {
       const err = await res.json().catch(() => ({ error: 'Failed' }));
       throw new Error(err.error || `Failed: ${res.status}`);

@@ -7,7 +7,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { AgentNewPage } from './pages/AgentNewPage';
 import { GateWizardPage } from './pages/GateWizardPage';
 import { AgentReviewPage } from './pages/AgentReviewPage';
-import { DeployReviewPage } from './pages/DeployReviewPage';
+import { IntegrationsPage } from './pages/IntegrationsPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { AuditPage } from './pages/AuditPage';
 import { SettingsServicesPage } from './pages/SettingsServicesPage';
@@ -36,10 +36,13 @@ function AppRoutes() {
         <Route path="/agent/new" element={<AgentNewPage />} />
         <Route path="/agent/gate" element={<GateWizardPage />} />
         <Route path="/agent/review" element={<AgentReviewPage />} />
-        <Route path="/deploy" element={<DeployReviewPage />} />
+        <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/audit" element={<AuditPage />} />
-        <Route path="/settings/services" element={<SettingsServicesPage />} />
+        <Route path="/settings" element={<SettingsServicesPage />} />
+        {/* Redirect old routes */}
+        <Route path="/settings/services" element={<Navigate to="/settings" replace />} />
+        <Route path="/deploy" element={<Navigate to="/integrations" replace />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

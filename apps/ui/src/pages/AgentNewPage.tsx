@@ -46,7 +46,7 @@ export function AgentNewPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">New Agent Authorization</h1>
+        <h1 className="page-title">Authorize Agents</h1>
         <p className="page-subtitle">Select what your agent is allowed to do, define the bounds, then attest.</p>
       </div>
 

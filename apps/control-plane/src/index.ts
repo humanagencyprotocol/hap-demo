@@ -20,7 +20,7 @@ import { createVaultRouter } from './routes/vault';
 import { createAIRouter } from './routes/ai';
 import { createGitHubRouter } from './routes/github';
 import { requireAuth } from './middleware/auth';
-import { pushGateContent, setInternalSecret } from './lib/mcp-bridge';
+import { pushGateContent, setInternalSecret, getManifests } from './lib/mcp-bridge';
 import { createMCPRouter } from './routes/mcp';
 import { startUpdateChecker, getUpdateStatus } from './lib/update-checker';
 
@@ -73,6 +73,119 @@ function loginRateLimit(req: Request, res: Response, next: NextFunction): void {
 // ─── Auth routes (/auth/*) ──────────────────────────────────────────────
 
 app.use('/auth', jsonParser, createAuthRouter(vault, requireAuth(vault), loginRateLimit));
+
+// ─── Generic OAuth flow (driven by integration manifests) ───────────────
+
+// Cache manifests in memory (refreshed on first OAuth request)
+let manifestCache: Array<{
+  id: string;
+  oauth: {
+    authUrl: string;
+    tokenUrl: string;
+    scopes: string[];
+    credentialKeys: Record<string, string>;
+    tokenStorage: string;
+    extraParams?: Record<string, string>;
+  } | null;
+}> | null = null;
+
+async function getOAuthManifest(integrationId: string) {
+  if (!manifestCache) {
+    try {
+      const data = await getManifests() as { manifests: typeof manifestCache };
+      manifestCache = data.manifests;
+    } catch {
+      return null;
+    }
+  }
+  return manifestCache?.find(m => m.id === integrationId && m.oauth) ?? null;
+}
+
+app.get('/auth/oauth/:integrationId/start', async (req: Request, res: Response) => {
+  const { integrationId } = req.params;
+  const manifest = await getOAuthManifest(integrationId);
+  if (!manifest?.oauth) {
+    res.status(404).json({ error: `No OAuth config found for integration "${integrationId}"` });
+    return;
+  }
+  const creds = vault.getCredential(integrationId);
+  const oauth = manifest.oauth;
+  const clientIdKey = oauth.credentialKeys.clientId ?? 'clientId';
+  const clientSecretKey = oauth.credentialKeys.clientSecret ?? 'clientSecret';
+  if (!creds?.[clientIdKey] || !creds?.[clientSecretKey]) {
+    res.status(400).json({ error: `${integrationId} OAuth credentials must be configured first` });
+    return;
+  }
+  const redirectUri = `${req.protocol}://${req.get('host')}/auth/oauth/${integrationId}/callback`;
+  const params = new URLSearchParams({
+    client_id: creds[clientIdKey],
+    redirect_uri: redirectUri,
+    response_type: 'code',
+    scope: oauth.scopes.join(' '),
+    ...oauth.extraParams,
+  });
+  res.redirect(`${oauth.authUrl}?${params.toString()}`);
+});
+
+app.get('/auth/oauth/:integrationId/callback', async (req: Request, res: Response) => {
+  const { integrationId } = req.params;
+  const { code, error } = req.query;
+  if (error || !code) {
+    res.status(400).send(`<html><body><h2>Authorization failed</h2><p>${String(error || 'No authorization code received')}</p><script>setTimeout(()=>window.close(),3000)</script></body></html>`);
+    return;
+  }
+  const manifest = await getOAuthManifest(integrationId);
+  if (!manifest?.oauth) {
+    res.status(404).send('<html><body><h2>OAuth config not found</h2></body></html>');
+    return;
+  }
+  const creds = vault.getCredential(integrationId);
+  const oauth = manifest.oauth;
+  const clientIdKey = oauth.credentialKeys.clientId ?? 'clientId';
+  const clientSecretKey = oauth.credentialKeys.clientSecret ?? 'clientSecret';
+  if (!creds?.[clientIdKey] || !creds?.[clientSecretKey]) {
+    res.status(400).send('<html><body><h2>Credentials missing</h2></body></html>');
+    return;
+  }
+  const redirectUri = `${req.protocol}://${req.get('host')}/auth/oauth/${integrationId}/callback`;
+  try {
+    const tokenRes = await fetch(oauth.tokenUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: code as string,
+        client_id: creds[clientIdKey],
+        client_secret: creds[clientSecretKey],
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    const tokens = await tokenRes.json() as { refresh_token?: string; access_token?: string; error?: string };
+    if (tokens.error || !tokens.refresh_token) {
+      res.status(400).send(`<html><body><h2>Token exchange failed</h2><p>${String(tokens.error || 'No refresh token received')}</p><script>setTimeout(()=>window.close(),3000)</script></body></html>`);
+      return;
+    }
+    // Store refresh token alongside existing credentials
+    vault.setCredential(integrationId, {
+      ...creds,
+      [oauth.tokenStorage]: tokens.refresh_token,
+    });
+    console.log(`[Control Plane] ${integrationId} OAuth tokens stored in vault`);
+    res.send(`<html><body><h2>${manifest.id} connected successfully</h2><p>You can close this window.</p><script>setTimeout(()=>window.close(),2000)</script></body></html>`);
+  } catch (err) {
+    console.error(`[Control Plane] ${integrationId} OAuth error:`, err);
+    res.status(500).send('<html><body><h2>OAuth error</h2><p>See server logs</p></body></html>');
+  }
+});
+
+// Backward compatibility: redirect old Gmail OAuth URLs to new generic handler
+app.get('/auth/gmail/start', (_req: Request, res: Response) => {
+  res.redirect('/auth/oauth/gmail/start');
+});
+app.get('/auth/gmail/callback', (req: Request, res: Response) => {
+  const qs = new URLSearchParams(req.query as Record<string, string>).toString();
+  res.redirect(`/auth/oauth/gmail/callback${qs ? '?' + qs : ''}`);
+});
 
 // ─── Protected routes — require X-API-Key ────────────────────────────────
 

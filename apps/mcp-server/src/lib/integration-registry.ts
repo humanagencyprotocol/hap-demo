@@ -6,7 +6,7 @@
 
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import type { ExecutionMappingValue } from '@hap/core';
+import type { ExecutionMappingValue, ProfileToolGating } from '@hap/core';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,6 +47,8 @@ export interface IntegrationConfig {
   envKeys: Record<string, string>;
   /** HAP profile ID for tool gating (e.g., "spend"). Null = ungated. */
   profile: string | null;
+  /** Tool gating from integration manifest (preferred over profile's toolGating). */
+  toolGating?: ProfileToolGating;
   /** Whether this integration should be spawned on startup */
   enabled: boolean;
 }
