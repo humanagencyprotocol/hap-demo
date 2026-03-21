@@ -10,6 +10,7 @@ import { AgentReviewPage } from './pages/AgentReviewPage';
 import { IntegrationsPage } from './pages/IntegrationsPage';
 import { GroupsPage } from './pages/GroupsPage';
 import { AuthorizationsPage } from './pages/AuthorizationsPage';
+import { AuditPage } from './pages/AuditPage';
 import { SettingsServicesPage } from './pages/SettingsServicesPage';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
@@ -39,7 +40,7 @@ function AppRoutes() {
         <Route path="/integrations" element={<IntegrationsPage />} />
         <Route path="/groups" element={<GroupsPage />} />
         <Route path="/authorizations" element={<AuthorizationsPage />} />
-        <Route path="/audit" element={<Navigate to="/authorizations" replace />} />
+        <Route path="/audit" element={<AuditPage />} />
         <Route path="/settings" element={<SettingsServicesPage />} />
         {/* Redirect old routes */}
         <Route path="/settings/services" element={<Navigate to="/settings" replace />} />

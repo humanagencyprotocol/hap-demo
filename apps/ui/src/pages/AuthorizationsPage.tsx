@@ -123,7 +123,7 @@ export function AuthorizationsPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Authorizations</h1>
+        <h1 className="page-title">Agent Authorizations</h1>
         <p className="page-subtitle">Manage active, pending, and expired agent authorizations.</p>
       </div>
 
