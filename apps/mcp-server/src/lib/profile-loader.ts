@@ -23,7 +23,8 @@ interface ProfileIndex {
  * Returns the number of profiles loaded.
  */
 export function loadProfiles(profilesDir?: string): number {
-  const dir = resolve(profilesDir ?? process.env.HAP_PROFILES_DIR ?? join(process.cwd(), '..', '..', 'hap-profiles'));
+  // Default: ../../../../../hap-profiles relative to this file (src/lib → src → mcp-server → apps → hap-gateway → HAP/hap-profiles)
+  const dir = resolve(profilesDir ?? process.env.HAP_PROFILES_DIR ?? join(import.meta.dirname ?? __dirname, '..', '..', '..', '..', '..', 'hap-profiles'));
   const indexPath = join(dir, 'index.json');
 
   if (!existsSync(indexPath)) {

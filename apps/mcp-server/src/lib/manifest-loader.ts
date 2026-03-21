@@ -65,10 +65,11 @@ const manifests = new Map<string, IntegrationManifest>();
  * Returns the number of manifests loaded.
  */
 export function loadManifests(integrationsDir?: string): number {
+  // Default: ../../../../content/integrations relative to this file (src/lib/ → apps/mcp-server → hap-gateway/content/integrations)
   const dir = resolve(
     integrationsDir ??
     process.env.HAP_INTEGRATIONS_DIR ??
-    join(process.cwd(), '..', '..', 'content', 'integrations'),
+    join(import.meta.dirname ?? __dirname, '..', '..', '..', '..', 'content', 'integrations'),
   );
   const indexPath = join(dir, 'index.json');
 
