@@ -312,7 +312,7 @@ describe('createGatedToolHandler — SP receipt integration', () => {
 // ─── buildProxiedToolDescription — gating tags ──────────────────────────────
 
 describe('buildProxiedToolDescription', () => {
-  it('returns [HAP: ungated] for tools with no gating', () => {
+  it('returns [HAP: no gating config] for tools with no gating', () => {
     const tool: DiscoveredTool = {
       originalName: 'list_products',
       namespacedName: 'stripe__list_products',
@@ -323,7 +323,7 @@ describe('buildProxiedToolDescription', () => {
     };
     const state = mockState();
     const desc = buildProxiedToolDescription(tool, state);
-    expect(desc).toBe('[HAP: ungated] List all products');
+    expect(desc).toBe('[HAP: no gating config] List all products');
   });
 
   it('returns gating tag with action type and checked fields for gated tool with auth', () => {

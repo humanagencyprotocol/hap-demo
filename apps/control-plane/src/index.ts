@@ -74,6 +74,25 @@ function loginRateLimit(req: Request, res: Response, next: NextFunction): void {
 
 app.use('/auth', jsonParser, createAuthRouter(vault, requireAuth(vault), loginRateLimit));
 
+// ─── Origin helper (respects proxy headers) ─────────────────────────────
+
+/** Resolve the public-facing origin, accounting for Vite dev proxy / reverse proxies. */
+function resolveOrigin(req: Request): string {
+  const fwdHost = req.get('x-forwarded-host');
+  if (fwdHost) return `${req.protocol}://${fwdHost}`;
+  // In dev, Vite's changeOrigin rewrites Host to the control-plane port.
+  // Fall back to Referer which preserves the real browser origin.
+  const referer = req.get('referer');
+  if (referer) {
+    try { return new URL(referer).origin; } catch { /* ignore */ }
+  }
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+// ─── OAuth redirect URI storage (must match exactly between start/callback) ─
+
+const oauthRedirectUris = new Map<string, string>();
+
 // ─── Generic OAuth flow (driven by integration manifests) ───────────────
 
 // Cache manifests in memory (refreshed on first OAuth request)
@@ -116,7 +135,9 @@ app.get('/auth/oauth/:integrationId/start', async (req: Request, res: Response) 
     res.status(400).json({ error: `${integrationId} OAuth credentials must be configured first` });
     return;
   }
-  const redirectUri = `${req.protocol}://${req.get('host')}/auth/oauth/${integrationId}/callback`;
+  const redirectUri = `${resolveOrigin(req)}/auth/oauth/${integrationId}/callback`;
+  // Store redirect URI so callback can use the exact same value
+  oauthRedirectUris.set(integrationId, redirectUri);
   const params = new URLSearchParams({
     client_id: creds[clientIdKey],
     redirect_uri: redirectUri,
@@ -147,7 +168,10 @@ app.get('/auth/oauth/:integrationId/callback', async (req: Request, res: Respons
     res.status(400).send('<html><body><h2>Credentials missing</h2></body></html>');
     return;
   }
-  const redirectUri = `${req.protocol}://${req.get('host')}/auth/oauth/${integrationId}/callback`;
+  // Use the redirect URI stored during /start to ensure exact match
+  const redirectUri = oauthRedirectUris.get(integrationId)
+    ?? `${resolveOrigin(req)}/auth/oauth/${integrationId}/callback`;
+  oauthRedirectUris.delete(integrationId);
   try {
     const tokenRes = await fetch(oauth.tokenUrl, {
       method: 'POST',

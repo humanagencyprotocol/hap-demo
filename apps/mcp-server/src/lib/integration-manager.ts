@@ -282,10 +282,17 @@ export class IntegrationManager {
   ): ToolGatingConfig | null {
     if (!profileId || !profileGating) return null;
 
-    // Check overrides first (null override = exempt from gating)
+    // Check overrides first
     if (profileGating.overrides && toolName in profileGating.overrides) {
       const override = profileGating.overrides[toolName];
-      if (override === null) return null;
+      // null override or { category: "read" } = read-only tool (still requires authorization)
+      if (override === null || (override as { category?: string }).category === 'read') {
+        return {
+          profile: profileId,
+          executionMapping: {},
+          category: 'read',
+        };
+      }
       return {
         profile: profileId,
         executionMapping: override.executionMapping,

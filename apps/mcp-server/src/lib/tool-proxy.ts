@@ -2,7 +2,11 @@
  * Tool Proxy — HAP gating wrapper for proxied tool calls.
  *
  * Wraps downstream MCP tool calls with HAP authorization verification.
- * For gated tools, auto-selects the best matching authorization from active ones.
+ * ALL tools require authorization — no ungated access.
+ *
+ * - Read-only tools (category: "read") require a matching authorization
+ *   but skip execution context verification.
+ * - Write tools require full execution context verification against bounds.
  */
 
 import type { IntegrationManager, DiscoveredTool } from './integration-manager';
@@ -22,23 +26,55 @@ type ToolResult = {
 /**
  * Create a handler function for a proxied tool that gates calls through HAP.
  *
- * - If `tool.gating` is null → proxy directly (ungated/read-only tool)
- * - If gated → build execution context, find matching authorization, verify, then proxy
+ * All tools require authorization:
+ * - Read tools (category: "read") → need matching auth, no execution context checks
+ * - Write tools → full execution context verification against bounds
  */
 export function createGatedToolHandler(
   tool: DiscoveredTool,
   integrationManager: IntegrationManager,
   state: SharedState,
 ): (args: Record<string, unknown>) => Promise<ToolResult> {
-  // Ungated tools: proxy directly
+  // Tools without gating config still require authorization if integration has a profile
   if (!tool.gating || !tool.gating.profile) {
+    return async () => {
+      return {
+        content: [{
+          type: 'text',
+          text: `Tool "${tool.namespacedName}" has no gating configuration. All tools require authorization.`,
+        }],
+        isError: true,
+      };
+    };
+  }
+
+  const { profile, executionMapping, staticExecution, category } = tool.gating;
+
+  // Read-only tools: require matching authorization but skip execution context checks
+  if (category === 'read') {
     return async (args: Record<string, unknown>) => {
+      const auths = state.getEnrichedAuthorizations();
+      const matchingAuths = auths.filter(
+        a => a.complete && profileMatches(a.profileId, profile!),
+      );
+
+      if (matchingAuths.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: `No active authorization matching profile "${profile}". ` +
+              `A decision owner must grant authority via the Authority UI before this tool can be used.`,
+          }],
+          isError: true,
+        };
+      }
+
+      // Authorization exists — proxy the read call (no execution context verification needed)
       return integrationManager.callTool(tool.integrationId, tool.originalName, args);
     };
   }
 
-  const { profile, executionMapping, staticExecution } = tool.gating;
-
+  // Write tools: full execution context verification
   return async (args: Record<string, unknown>) => {
     // Start with static values (e.g., scope: "external")
     const execution: Record<string, string | number> = { ...staticExecution };
@@ -61,7 +97,7 @@ export function createGatedToolHandler(
     // Find all active authorizations matching this profile
     const auths = state.getEnrichedAuthorizations();
     const matchingAuths = auths.filter(
-      a => a.complete && profileMatches(a.profileId, profile),
+      a => a.complete && profileMatches(a.profileId, profile!),
     );
 
     if (matchingAuths.length === 0) {
@@ -148,7 +184,7 @@ export function createGatedToolHandler(
  * Build a description for a proxied tool that includes a short gating tag.
  *
  * Tags:
- * - [HAP: ungated] — no authorization needed
+ * - [HAP: spend — read] — read-only, requires authorization
  * - [HAP: spend — charge, amount checked] — gated with specific checks
  * - [HAP: spend — no active authorization] — gated but no auth available
  */
@@ -157,7 +193,7 @@ export function buildProxiedToolDescription(
   state: SharedState,
 ): string {
   if (!tool.gating || !tool.gating.profile) {
-    return `[HAP: ungated] ${tool.description}`;
+    return `[HAP: no gating config] ${tool.description}`;
   }
 
   const profile = tool.gating.profile;
@@ -168,6 +204,10 @@ export function buildProxiedToolDescription(
 
   if (!hasAuth) {
     return `[HAP: ${profile} — no active authorization] ${tool.description}`;
+  }
+
+  if (tool.gating.category === 'read') {
+    return `[HAP: ${profile} — read] ${tool.description}`;
   }
 
   // Build a short tag describing what's checked

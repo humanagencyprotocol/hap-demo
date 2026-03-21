@@ -53,14 +53,14 @@
         "executionMapping": {},
         "staticExecution": { "recipient_count": 1 }
       },
-      "list_messages": null,
-      "get_message": null,
-      "get_attachment": null,
-      "list_drafts": null,
-      "get_draft": null,
-      "delete_draft": null,
-      "list_labels": null,
-      "get_profile": null
+      "list_messages": { "category": "read" },
+      "get_message": { "category": "read" },
+      "get_attachment": { "category": "read" },
+      "list_drafts": { "category": "read" },
+      "get_draft": { "category": "read" },
+      "delete_draft": { "category": "read" },
+      "list_labels": { "category": "read" },
+      "get_profile": { "category": "read" }
     }
   },
   "setupHint": "Create OAuth credentials at Google Cloud Console (enable Gmail API, create OAuth 2.0 Client ID, type: Web application)."

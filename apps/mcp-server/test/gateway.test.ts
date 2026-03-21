@@ -213,32 +213,24 @@ describe('MCP Gateway', () => {
     await client.connect(transport);
 
     try {
-      // List tools — should include proxied tools
+      // List tools — proxied tools should exist but be disabled (no profile = no authorization possible)
       const { tools } = await client.listTools();
       const toolNames = tools.map(t => t.name);
-      expect(toolNames).toContain('test-tools__echo');
-      expect(toolNames).toContain('test-tools__add');
+      // Tools with profile: null are disabled — they won't appear in the list
+      // Only HAP admin tools should be visible
+      expect(toolNames).toContain('list-authorizations');
+      expect(toolNames).toContain('check-pending-attestations');
 
-      // Verify echo tool has correct schema
-      const echoTool = tools.find(t => t.name === 'test-tools__echo');
-      expect(echoTool?.description).toContain('Echoes back the input message');
-      expect(echoTool?.inputSchema?.properties).toHaveProperty('message');
-
-      // Call the echo tool
-      const echoResult = await client.callTool({
-        name: 'test-tools__echo',
-        arguments: { message: 'hello gateway' },
-      });
-      const echoText = (echoResult.content as Array<{ type: string; text: string }>)[0]?.text;
-      expect(echoText).toBe('Echo: hello gateway');
-
-      // Call the add tool
-      const addResult = await client.callTool({
-        name: 'test-tools__add',
-        arguments: { a: 3, b: 7 },
-      });
-      const addText = (addResult.content as Array<{ type: string; text: string }>)[0]?.text;
-      expect(addText).toBe('Result: 10');
+      // Calling a disabled tool should fail
+      try {
+        await client.callTool({
+          name: 'test-tools__echo',
+          arguments: { message: 'hello gateway' },
+        });
+        expect.fail('Expected tool to be disabled when no profile is set');
+      } catch (err) {
+        expect(String(err)).toContain('disabled');
+      }
     } finally {
       await client.close();
     }
@@ -273,22 +265,23 @@ describe('MCP Gateway', () => {
     await client.connect(transport);
 
     try {
-      // Echo should work (ungated via override)
-      const echoResult = await client.callTool({
-        name: 'test-tools__echo',
-        arguments: { message: 'ungated' },
-      });
-      const echoText = (echoResult.content as Array<{ type: string; text: string }>)[0]?.text;
-      expect(echoText).toBe('Echo: ungated');
+      // All tools should be disabled — no active authorization for 'spend' profile
+      // Both echo and add require authorization now (no ungated tools)
+      try {
+        await client.callTool({
+          name: 'test-tools__echo',
+          arguments: { message: 'should fail' },
+        });
+        expect.fail('Expected tool to be disabled when no authorization exists');
+      } catch (err) {
+        expect(String(err)).toContain('disabled');
+      }
 
-      // Add should be gated — no authorization means the tool is disabled
-      // (refreshTools disables gated tools when no matching authorization exists)
       try {
         await client.callTool({
           name: 'test-tools__add',
           arguments: { a: 5000, b: 7 },
         });
-        // If we get here, the tool wasn't disabled — fail the test
         expect.fail('Expected gated tool to be disabled when no authorization exists');
       } catch (err) {
         expect(String(err)).toContain('disabled');

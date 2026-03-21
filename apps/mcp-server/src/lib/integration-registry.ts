@@ -25,6 +25,8 @@ export interface ToolGatingConfig {
   profile: string | null;
   executionMapping: Record<string, ExecutionMappingValue>;
   staticExecution?: Record<string, string | number>;
+  /** Read-only tools: require authorization but no execution context checks */
+  category?: 'read';
 }
 
 /**

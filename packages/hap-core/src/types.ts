@@ -212,16 +212,21 @@ export type ExecutionMappingValue = string | { field: string; divisor: number };
 
 /**
  * Tool gating entry — how a tool's calls map to execution context fields.
+ * Read-only tools use { category: "read" } — they require authorization
+ * but skip execution context verification.
  */
 export interface ProfileToolGatingEntry {
   executionMapping: Record<string, ExecutionMappingValue>;
   staticExecution?: Record<string, string | number>;
+  /** Read-only tools: require authorization but no execution context checks */
+  category?: 'read';
 }
 
 /**
  * Profile-level tool gating configuration.
  * - default: applied to all tools not listed in overrides
- * - overrides: per-tool configs keyed by original MCP tool name (null = exempt)
+ * - overrides: per-tool configs keyed by original MCP tool name
+ *   Use { category: "read" } for read-only tools (null is deprecated)
  */
 export interface ProfileToolGating {
   default: ProfileToolGatingEntry;

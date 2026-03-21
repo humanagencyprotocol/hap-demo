@@ -61,10 +61,10 @@
         "executionMapping": {},
         "staticExecution": { "action_type": "subscribe" }
       },
-      "retrieve_balance": null,
-      "list_invoices": null,
-      "list_subscriptions": null,
-      "list_payment_methods": null
+      "retrieve_balance": { "category": "read" },
+      "list_invoices": { "category": "read" },
+      "list_subscriptions": { "category": "read" },
+      "list_payment_methods": { "category": "read" }
     }
   },
   "setupHint": "Use a test key (sk_test_...) for development."

@@ -166,12 +166,15 @@ export function createMcpServer(
       const description = buildProxiedToolDescription(tool, state);
       registered.update({ description });
 
-      // For gated tools, enable/disable based on matching authorizations
+      // All tools require authorization — enable/disable based on matching authorizations
       if (tool.gating?.profile) {
         const hasAuth = auths.some(
           a => a.complete && profileMatches(a.profileId, tool.gating!.profile!),
         );
         if (hasAuth) registered.enable(); else registered.disable();
+      } else {
+        // No gating config = no profile = always disabled
+        registered.disable();
       }
     }
 
