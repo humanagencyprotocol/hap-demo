@@ -7,8 +7,8 @@
 
 import type { AgentProfile } from '../src/types';
 
-export const SPEND_PROFILE: AgentProfile = {
-  id: 'spend@0.3',
+export const CHARGE_PROFILE: AgentProfile = {
+  id: 'charge@0.3',
   version: '0.3',
   description: 'Financial authority — governs committing company money: charges, refunds, subscriptions, payouts',
 
@@ -62,11 +62,11 @@ export const SPEND_PROFILE: AgentProfile = {
   },
 
   executionPaths: {
-    'spend-routine': {
+    'charge-routine': {
       description: 'Day-to-day financial transactions within authorized bounds',
       requiredDomains: ['finance'],
     },
-    'spend-reviewed': {
+    'charge-reviewed': {
       description: 'Large or unusual transactions requiring dual authorization',
       requiredDomains: ['finance', 'compliance'],
       ttl: { default: 14400, max: 86400 },
@@ -77,7 +77,7 @@ export const SPEND_PROFILE: AgentProfile = {
 
   gateQuestions: {
     problem: { question: 'What problem does this financial authority address?', required: true },
-    objective: { question: 'What outcome should this spending authority enable?', required: true },
+    objective: { question: 'What outcome should this charge authority enable?', required: true },
     tradeoffs: { question: 'What financial risks do you accept with this authority?', required: true },
   },
 
@@ -283,11 +283,108 @@ export const EMAIL_PROFILE_V4: AgentProfile = {
 };
 
 /**
- * v0.4 spend profile fixture — uses boundsSchema + contextSchema instead of frameSchema.
- * Mirrors /hap-profiles/spend/profile.json at v0.4.
+ * v0.4 charge profile fixture — uses boundsSchema + contextSchema instead of frameSchema.
+ * Mirrors /hap-profiles/charge/profile.json at v0.4.
  */
-export const SPEND_PROFILE_V4: AgentProfile = {
-  id: 'spend@0.4',
+/**
+ * v0.4 deploy profile fixture — uses boundsSchema + contextSchema.
+ * Mirrors /hap-profiles/deploy/profile.json at v0.4.
+ */
+export const DEPLOY_PROFILE_V4: AgentProfile = {
+  id: 'deploy@0.4',
+  version: '0.4',
+  description: 'Deployment authority — governs which services an agent may deploy and to which environments',
+
+  boundsSchema: {
+    keyOrder: ['profile', 'path', 'deploy_daily_max'],
+    fields: {
+      profile: { type: 'string', required: true },
+      path: { type: 'string', required: true },
+      deploy_daily_max: {
+        type: 'number',
+        required: true,
+        displayName: 'Daily deploy limit',
+        description: 'Maximum number of deployments per day',
+        constraint: { type: 'number', enforceable: ['max'] },
+      },
+    },
+  },
+
+  contextSchema: {
+    keyOrder: ['allowed_services', 'environment'],
+    fields: {
+      allowed_services: {
+        type: 'string',
+        required: true,
+        displayName: 'Allowed services',
+        description: 'Comma-separated list of services the agent may deploy',
+        constraint: { type: 'string', enforceable: ['subset'] },
+      },
+      environment: {
+        type: 'string',
+        required: true,
+        displayName: 'Environment',
+        description: 'Target environment',
+        constraint: { type: 'string', enforceable: ['enum'] },
+        enum: ['sandbox', 'staging', 'production'],
+      },
+    },
+  },
+
+  executionContextSchema: {
+    fields: {
+      service: {
+        source: 'declared',
+        description: 'Service being deployed',
+        required: true,
+        constraint: { type: 'string', enforceable: ['subset'] },
+      },
+      environment: {
+        source: 'declared',
+        description: 'Target environment for this deployment',
+        required: true,
+        constraint: { type: 'string', enforceable: ['enum'] },
+      },
+      deploy_count_daily: {
+        source: 'cumulative',
+        cumulativeField: '_count',
+        window: 'daily',
+        description: 'Running daily deployment count',
+        required: true,
+        constraint: { type: 'number', enforceable: ['max'] },
+      },
+    },
+  },
+
+  executionPaths: {
+    'deploy-sandbox': {
+      description: 'Deploy to isolated sandbox environments',
+      ttl: { default: 86400, max: 86400 },
+    },
+    'deploy-staging': {
+      description: 'Deploy to shared staging environment',
+      ttl: { default: 28800, max: 86400 },
+    },
+    'deploy-production': {
+      description: 'Deploy to production',
+      ttl: { default: 7200, max: 86400 },
+    },
+  },
+
+  requiredGates: ['bounds', 'problem', 'objective', 'tradeoff', 'commitment', 'decision_owner'],
+
+  gateQuestions: {
+    problem: { question: 'What user-facing behavior should change after this deployment?', required: true },
+    objective: { question: 'How will you know the deployment succeeded?', required: true },
+    tradeoffs: { question: 'What breaks if this deployment fails, and how do you recover?', required: true },
+  },
+
+  ttl: { default: 28800, max: 86400 },
+  retention_minimum: 7776000,
+};
+
+export const CHARGE_PROFILE_V4: AgentProfile = {
+  id: 'charge@0.4',
   version: '0.4',
   description: 'Financial authority — governs committing company money: charges, refunds, subscriptions, payouts',
 
@@ -306,15 +403,15 @@ export const SPEND_PROFILE_V4: AgentProfile = {
       amount_daily_max: {
         type: 'number',
         required: true,
-        displayName: 'Daily spending limit',
-        description: 'Maximum cumulative spend per day in currency units',
+        displayName: 'Daily charge limit',
+        description: 'Maximum cumulative charges per day in currency units',
         constraint: { type: 'number', enforceable: ['max'] },
       },
       amount_monthly_max: {
         type: 'number',
         required: true,
-        displayName: 'Monthly spending limit',
-        description: 'Maximum cumulative spend per month in currency units',
+        displayName: 'Monthly charge limit',
+        description: 'Maximum cumulative charges per month in currency units',
         constraint: { type: 'number', enforceable: ['max'] },
       },
       transaction_count_daily_max: {
@@ -371,7 +468,7 @@ export const SPEND_PROFILE_V4: AgentProfile = {
         source: 'cumulative',
         cumulativeField: 'amount',
         window: 'daily',
-        description: 'Running daily spend total (resolved from execution log)',
+        description: 'Running daily charge total (resolved from execution log)',
         required: true,
         constraint: { type: 'number', enforceable: ['max'] },
       },
@@ -379,7 +476,7 @@ export const SPEND_PROFILE_V4: AgentProfile = {
         source: 'cumulative',
         cumulativeField: 'amount',
         window: 'monthly',
-        description: 'Running monthly spend total (resolved from execution log)',
+        description: 'Running monthly charge total (resolved from execution log)',
         required: true,
         constraint: { type: 'number', enforceable: ['max'] },
       },
@@ -395,12 +492,12 @@ export const SPEND_PROFILE_V4: AgentProfile = {
   },
 
   executionPaths: {
-    'spend-routine': {
+    'charge-routine': {
       description: 'Day-to-day financial transactions within authorized bounds',
       requiredDomains: ['finance'],
       ttl: { default: 86400, max: 86400 },
     },
-    'spend-reviewed': {
+    'charge-reviewed': {
       description: 'Large or unusual transactions requiring dual authorization',
       requiredDomains: ['finance', 'compliance'],
       ttl: { default: 14400, max: 86400 },
@@ -411,7 +508,7 @@ export const SPEND_PROFILE_V4: AgentProfile = {
 
   gateQuestions: {
     problem: { question: 'What problem does this financial authority address?', required: true },
-    objective: { question: 'What outcome should this spending authority enable?', required: true },
+    objective: { question: 'What outcome should this charge authority enable?', required: true },
     tradeoffs: { question: 'What financial risks do you accept with this authority?', required: true },
   },
 

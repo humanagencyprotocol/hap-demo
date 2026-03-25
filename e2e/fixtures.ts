@@ -17,7 +17,7 @@ export const BOB = {
 } as const;
 
 export const PROFILE_IDS = [
-  'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
+  'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
   'github.com/humanagencyprotocol/hap-profiles/ship@0.3',
   'github.com/humanagencyprotocol/hap-profiles/data@0.3',
   'github.com/humanagencyprotocol/hap-profiles/publish@0.3',

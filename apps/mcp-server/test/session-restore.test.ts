@@ -25,8 +25,8 @@ function makeEntry(overrides: Partial<GateEntry> = {}): GateEntry {
     frameHash: 'sha256:abc123def456',
     boundsHash: 'sha256:bounds123',
     contextHash: 'sha256:ctx456',
-    path: 'spend-routine',
-    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.4',
+    path: 'charge-routine',
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.4',
     gateContent: {
       problem: 'Test purchasing authority for session restore.',
       objective: 'Enable automated payment processing within bounds.',
@@ -43,8 +43,8 @@ function makeEntry(overrides: Partial<GateEntry> = {}): GateEntry {
 
 function makeLogEntry(overrides: Partial<ExecutionLogEntry> = {}): ExecutionLogEntry {
   return {
-    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.4',
-    path: 'spend-routine',
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.4',
+    path: 'charge-routine',
     execution: { amount: 42, currency: 'USD', action_type: 'charge' },
     timestamp: Math.floor(Date.now() / 1000),
     ...overrides,
@@ -72,11 +72,11 @@ describe('Session Restore', () => {
 
       // Write with first instance
       const store1 = new GateStore(testDir);
-      store1.set('spend-routine', entry);
+      store1.set('charge-routine', entry);
 
       // Re-instantiate from same directory
       const store2 = new GateStore(testDir);
-      const retrieved = store2.get('spend-routine');
+      const retrieved = store2.get('charge-routine');
 
       expect(retrieved).not.toBeNull();
       expect(retrieved!.frameHash).toBe(entry.frameHash);
@@ -91,10 +91,10 @@ describe('Session Restore', () => {
       const entry = makeEntry({ context: { currency: 'EUR', action_type: 'refund' } });
 
       const store1 = new GateStore(testDir);
-      store1.set('spend-reviewed', entry);
+      store1.set('charge-reviewed', entry);
 
       const store2 = new GateStore(testDir);
-      const retrieved = store2.get('spend-reviewed');
+      const retrieved = store2.get('charge-reviewed');
 
       expect(retrieved).not.toBeNull();
       expect(retrieved!.context).toEqual({ currency: 'EUR', action_type: 'refund' });
@@ -108,10 +108,10 @@ describe('Session Restore', () => {
       });
 
       const store1 = new GateStore(testDir);
-      store1.set('spend-routine', entry);
+      store1.set('charge-routine', entry);
 
       const store2 = new GateStore(testDir);
-      const retrieved = store2.get('spend-routine');
+      const retrieved = store2.get('charge-routine');
 
       expect(retrieved).not.toBeNull();
       expect(retrieved!.boundsHash).toBe('sha256:boundsABC123');
@@ -121,12 +121,12 @@ describe('Session Restore', () => {
 
     it('multiple entries all survive re-instantiation', () => {
       const store1 = new GateStore(testDir);
-      store1.set('spend-routine', makeEntry({ path: 'spend-routine' }));
-      store1.set('spend-reviewed', makeEntry({ path: 'spend-reviewed', boundsHash: 'sha256:other' }));
+      store1.set('charge-routine', makeEntry({ path: 'charge-routine' }));
+      store1.set('charge-reviewed', makeEntry({ path: 'charge-reviewed', boundsHash: 'sha256:other' }));
 
       const store2 = new GateStore(testDir);
-      expect(store2.get('spend-routine')).not.toBeNull();
-      expect(store2.get('spend-reviewed')).not.toBeNull();
+      expect(store2.get('charge-routine')).not.toBeNull();
+      expect(store2.get('charge-reviewed')).not.toBeNull();
       expect(store2.getAll()).toHaveLength(2);
     });
   });
@@ -150,8 +150,8 @@ describe('Session Restore', () => {
     });
 
     it('sumByWindow returns correct values after re-instantiation', () => {
-      const profileId = 'github.com/humanagencyprotocol/hap-profiles/spend@0.4';
-      const path = 'spend-routine';
+      const profileId = 'github.com/humanagencyprotocol/hap-profiles/charge@0.4';
+      const path = 'charge-routine';
       const now = Math.floor(Date.now() / 1000);
 
       const log1 = new ExecutionLog(testDir);
@@ -168,17 +168,17 @@ describe('Session Restore', () => {
     });
 
     it('multiple records across paths survive re-instantiation', () => {
-      const profileId = 'github.com/humanagencyprotocol/hap-profiles/spend@0.4';
+      const profileId = 'github.com/humanagencyprotocol/hap-profiles/charge@0.4';
       const now = Math.floor(Date.now() / 1000);
 
       const log1 = new ExecutionLog(testDir);
-      log1.record(makeLogEntry({ path: 'spend-routine', execution: { amount: 10 }, timestamp: now - 50 }));
-      log1.record(makeLogEntry({ path: 'spend-reviewed', execution: { amount: 200 }, timestamp: now - 50 }));
+      log1.record(makeLogEntry({ path: 'charge-routine', execution: { amount: 10 }, timestamp: now - 50 }));
+      log1.record(makeLogEntry({ path: 'charge-reviewed', execution: { amount: 200 }, timestamp: now - 50 }));
 
       const log2 = new ExecutionLog(testDir);
       expect(log2.size).toBe(2);
-      expect(log2.sumByWindow(profileId, 'spend-routine', 'amount', 'daily', now)).toBe(10);
-      expect(log2.sumByWindow(profileId, 'spend-reviewed', 'amount', 'daily', now)).toBe(200);
+      expect(log2.sumByWindow(profileId, 'charge-routine', 'amount', 'daily', now)).toBe(10);
+      expect(log2.sumByWindow(profileId, 'charge-reviewed', 'amount', 'daily', now)).toBe(200);
     });
   });
 
@@ -191,7 +191,7 @@ describe('Session Restore', () => {
 
       const store1 = new GateStore(testDir);
       store1.setVaultKey(vaultKey);
-      store1.set('spend-routine', entry);
+      store1.set('charge-routine', entry);
 
       // Verify encrypted file exists
       expect(existsSync(join(testDir, 'gates.enc.json'))).toBe(true);
@@ -202,7 +202,7 @@ describe('Session Restore', () => {
       const store2 = new GateStore(testDir);
       store2.setVaultKey(vaultKey);
 
-      const retrieved = store2.get('spend-routine');
+      const retrieved = store2.get('charge-routine');
       expect(retrieved).not.toBeNull();
       expect(retrieved!.gateContent.problem).toBe(entry.gateContent.problem);
       expect(retrieved!.boundsHash).toBe(entry.boundsHash);
@@ -212,8 +212,8 @@ describe('Session Restore', () => {
 
     it('execution log with vault key persists encrypted, restores with same key', () => {
       const vaultKey = makeVaultKey();
-      const profileId = 'github.com/humanagencyprotocol/hap-profiles/spend@0.4';
-      const path = 'spend-routine';
+      const profileId = 'github.com/humanagencyprotocol/hap-profiles/charge@0.4';
+      const path = 'charge-routine';
       const now = Math.floor(Date.now() / 1000);
 
       const log1 = new ExecutionLog(testDir);

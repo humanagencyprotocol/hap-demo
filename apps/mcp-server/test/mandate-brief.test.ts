@@ -7,11 +7,11 @@ function mockAuth(overrides: Partial<EnrichedAuthorization> = {}): EnrichedAutho
   const now = Math.floor(Date.now() / 1000);
   return {
     frameHash: 'sha256:abc',
-    profileId: 'spend@0.3',
-    path: 'spend-routine',
+    profileId: 'charge@0.3',
+    path: 'charge-routine',
     frame: {
-      profile: 'spend@0.3',
-      path: 'spend-routine',
+      profile: 'charge@0.3',
+      path: 'charge-routine',
       amount_max: 100,
       currency: 'USD',
       action_type: 'charge',
@@ -49,8 +49,8 @@ describe('buildMandateBrief', () => {
   it('includes active authority with bounds and gate content', () => {
     const brief = buildMandateBrief({ authorizations: [mockAuth()] });
     expect(brief).toContain('=== ACTIVE AUTHORITIES ===');
-    expect(brief).toContain('[spend-routine]');
-    expect(brief).toContain('spend@0.3');
+    expect(brief).toContain('[charge-routine]');
+    expect(brief).toContain('charge@0.3');
     expect(brief).toContain('Bounds:');
     expect(brief).toContain('amount_max: 100');
     expect(brief).toContain('Problem: Enable automated purchasing');
@@ -60,7 +60,7 @@ describe('buildMandateBrief', () => {
   it('includes pending authorities with missing domains', () => {
     const pending = mockAuth({
       complete: false,
-      path: 'spend-reviewed',
+      path: 'charge-reviewed',
       requiredDomains: ['finance', 'compliance'],
       attestedDomains: ['finance'],
     });

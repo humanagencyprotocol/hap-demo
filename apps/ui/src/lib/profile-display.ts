@@ -6,7 +6,7 @@ const MAX_NAME_LENGTH = 40;
  */
 export function profileDisplayName(profileId: string, name?: string): string {
   if (name) return name.slice(0, MAX_NAME_LENGTH);
-  // Fallback: extract from ID — "github.com/.../spend@0.4" → "Spend"
+  // Fallback: extract from ID — "github.com/.../charge@0.4" → "Charge"
   const lastSlash = profileId.lastIndexOf('/');
   const segment = lastSlash >= 0 ? profileId.slice(lastSlash + 1) : profileId;
   const atIndex = segment.indexOf('@');

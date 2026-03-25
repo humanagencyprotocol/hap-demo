@@ -23,8 +23,8 @@ function makeEntry(overrides: Partial<GateEntry> = {}): GateEntry {
     frameHash: 'sha256:abc123',
     boundsHash: 'sha256:bounds123',
     contextHash: 'sha256:ctx123',
-    path: 'spend-routine',
-    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.4',
+    path: 'charge-routine',
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.4',
     gateContent: {
       problem: 'Test purchasing authority.',
       objective: 'Enable automated payment processing.',
@@ -56,7 +56,7 @@ afterEach(() => {
 describe('GateStore — plaintext mode (no vault key)', () => {
   it('stores entry as plaintext JSON', () => {
     const store = new GateStore(testDir);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const plaintextPath = join(testDir, 'gates.json');
     expect(existsSync(plaintextPath)).toBe(true);
@@ -64,12 +64,12 @@ describe('GateStore — plaintext mode (no vault key)', () => {
     const raw = readFileSync(plaintextPath, 'utf-8');
     const data = JSON.parse(raw) as { version: number; entries: Record<string, unknown> };
     expect(data.version).toBe(1);
-    expect(data.entries['spend-routine']).toBeTruthy();
+    expect(data.entries['charge-routine']).toBeTruthy();
   });
 
   it('plaintext file contains readable gate content', () => {
     const store = new GateStore(testDir);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const raw = readFileSync(join(testDir, 'gates.json'), 'utf-8');
     // Problem, objective, tradeoffs are all readable in plaintext
@@ -81,9 +81,9 @@ describe('GateStore — plaintext mode (no vault key)', () => {
   it('can get stored entry back', () => {
     const store = new GateStore(testDir);
     const entry = makeEntry();
-    store.set('spend-routine', entry);
+    store.set('charge-routine', entry);
 
-    const retrieved = store.get('spend-routine');
+    const retrieved = store.get('charge-routine');
     expect(retrieved).not.toBeNull();
     expect(retrieved!.gateContent.problem).toBe(entry.gateContent.problem);
     expect(retrieved!.context?.currency).toBe('USD');
@@ -91,7 +91,7 @@ describe('GateStore — plaintext mode (no vault key)', () => {
 
   it('no encrypted file created without vault key', () => {
     const store = new GateStore(testDir);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     expect(existsSync(join(testDir, 'gates.enc.json'))).toBe(false);
   });
@@ -101,7 +101,7 @@ describe('GateStore — encrypted mode (with vault key)', () => {
   it('stores entry as encrypted blob', () => {
     const store = new GateStore(testDir);
     store.setVaultKey(makeVaultKey());
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const encPath = join(testDir, 'gates.enc.json');
     expect(existsSync(encPath)).toBe(true);
@@ -112,7 +112,7 @@ describe('GateStore — encrypted mode (with vault key)', () => {
       entries: Record<string, { iv: string; ciphertext: string; tag: string }>;
     };
     expect(data.version).toBe(1);
-    const blob = data.entries['spend-routine'];
+    const blob = data.entries['charge-routine'];
     expect(blob).toBeTruthy();
     // Blob has iv, ciphertext, tag — not plaintext fields
     expect(blob.iv).toBeTruthy();
@@ -123,7 +123,7 @@ describe('GateStore — encrypted mode (with vault key)', () => {
   it('encrypted file does not contain readable gate content', () => {
     const store = new GateStore(testDir);
     store.setVaultKey(makeVaultKey());
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const raw = readFileSync(join(testDir, 'gates.enc.json'), 'utf-8');
     // Gate content must NOT appear in plaintext in the encrypted file
@@ -135,14 +135,14 @@ describe('GateStore — encrypted mode (with vault key)', () => {
   it('encrypted file does not contain plaintext context values', () => {
     const store = new GateStore(testDir);
     store.setVaultKey(makeVaultKey());
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const raw = readFileSync(join(testDir, 'gates.enc.json'), 'utf-8');
     // Context content must NOT appear in plaintext
     expect(raw).not.toContain('"currency"');
     expect(raw).not.toContain('USD');
     expect(raw).not.toContain('"action_type"');
-    expect(raw).not.toContain('charge');
+    expect(raw).not.toContain('"charge"');
   });
 
   it('can decrypt and retrieve entry with correct vault key', () => {
@@ -150,13 +150,13 @@ describe('GateStore — encrypted mode (with vault key)', () => {
     const store = new GateStore(testDir);
     store.setVaultKey(vaultKey);
     const entry = makeEntry();
-    store.set('spend-routine', entry);
+    store.set('charge-routine', entry);
 
     // Create a new store with the same key and same directory
     const store2 = new GateStore(testDir);
     store2.setVaultKey(vaultKey);
 
-    const retrieved = store2.get('spend-routine');
+    const retrieved = store2.get('charge-routine');
     expect(retrieved).not.toBeNull();
     expect(retrieved!.gateContent.problem).toBe(entry.gateContent.problem);
     expect(retrieved!.gateContent.objective).toBe(entry.gateContent.objective);
@@ -171,7 +171,7 @@ describe('GateStore — encrypted mode (with vault key)', () => {
 
     const store = new GateStore(testDir);
     store.setVaultKey(correctKey);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     // Create a new store with the WRONG key
     const store2 = new GateStore(testDir);
@@ -179,7 +179,7 @@ describe('GateStore — encrypted mode (with vault key)', () => {
 
     // The store should fail gracefully and return null (not garbage data)
     // loadEncrypted catches the AES-GCM auth tag error and resets entries to empty
-    const retrieved = store2.get('spend-routine');
+    const retrieved = store2.get('charge-routine');
     expect(retrieved).toBeNull();
   });
 
@@ -191,13 +191,13 @@ describe('GateStore — encrypted mode (with vault key)', () => {
     const entry = makeEntry({
       context: { currency: 'EUR', action_type: 'refund' },
     });
-    store.set('spend-routine', entry);
+    store.set('charge-routine', entry);
 
     // Reload with same key and verify context round-trips
     const store2 = new GateStore(testDir);
     store2.setVaultKey(vaultKey);
 
-    const retrieved = store2.get('spend-routine');
+    const retrieved = store2.get('charge-routine');
     expect(retrieved!.context).toEqual({ currency: 'EUR', action_type: 'refund' });
   });
 });
@@ -206,7 +206,7 @@ describe('GateStore — migration: plaintext to encrypted', () => {
   it('after setVaultKey, plaintext file is removed and encrypted file exists', () => {
     // 1. Write plaintext entries without vault key
     const store = new GateStore(testDir);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     const plaintextPath = join(testDir, 'gates.json');
     const encPath = join(testDir, 'gates.enc.json');
@@ -225,21 +225,21 @@ describe('GateStore — migration: plaintext to encrypted', () => {
     // 1. Write plaintext entries
     const store = new GateStore(testDir);
     const entry = makeEntry();
-    store.set('spend-routine', entry);
+    store.set('charge-routine', entry);
 
     // 2. Migrate to encrypted
     const vaultKey = makeVaultKey();
     store.setVaultKey(vaultKey);
 
     // 3. Verify the migrated entry is still accessible
-    const retrieved = store.get('spend-routine');
+    const retrieved = store.get('charge-routine');
     expect(retrieved).not.toBeNull();
     expect(retrieved!.gateContent.problem).toBe(entry.gateContent.problem);
   });
 
   it('migrated encrypted file does not contain plaintext problem text', () => {
     const store = new GateStore(testDir);
-    store.set('spend-routine', makeEntry());
+    store.set('charge-routine', makeEntry());
 
     store.setVaultKey(makeVaultKey());
 

@@ -63,11 +63,11 @@ describe('list-authorizations', () => {
     const handler = listAuthorizationsHandler(mockState([
       {
         frameHash: 'sha256:abc',
-        profileId: 'spend@0.3',
-        path: 'spend-routine',
+        profileId: 'charge@0.3',
+        path: 'charge-routine',
         frame: {
-          profile: 'spend@0.3',
-          path: 'spend-routine',
+          profile: 'charge@0.3',
+          path: 'charge-routine',
           amount_max: 80,
           currency: 'EUR',
           action_type: 'charge',
@@ -82,7 +82,7 @@ describe('list-authorizations', () => {
     const result = await handler();
     const text = result.content[0].text;
     expect(text).toContain('Active authorizations');
-    expect(text).toContain('spend-routine');
+    expect(text).toContain('charge-routine');
     expect(text).toContain('amount_max: 80');
     expect(text).toContain('currency: EUR');
   });
@@ -92,11 +92,11 @@ describe('list-authorizations', () => {
     const handler = listAuthorizationsHandler(mockState([
       {
         frameHash: 'sha256:abc',
-        profileId: 'spend@0.3',
-        path: 'spend-reviewed',
+        profileId: 'charge@0.3',
+        path: 'charge-reviewed',
         frame: {
-          profile: 'spend@0.3',
-          path: 'spend-reviewed',
+          profile: 'charge@0.3',
+          path: 'charge-reviewed',
           amount_max: 5000,
           currency: 'EUR',
           action_type: 'charge',
@@ -119,11 +119,11 @@ describe('list-authorizations', () => {
     const handler = listAuthorizationsHandler(mockState([
       {
         frameHash: 'sha256:abc',
-        profileId: 'spend@0.3',
-        path: 'spend-routine',
+        profileId: 'charge@0.3',
+        path: 'charge-routine',
         frame: {
-          profile: 'spend@0.3',
-          path: 'spend-routine',
+          profile: 'charge@0.3',
+          path: 'charge-routine',
           amount_max: 100,
           currency: 'USD',
           action_type: 'charge',
@@ -138,10 +138,10 @@ describe('list-authorizations', () => {
       },
     ]));
 
-    const result = await handler({ domain: 'spend' });
+    const result = await handler({ domain: 'charge' });
     const text = result.content[0].text;
-    expect(text).toContain('[spend-routine]');
-    expect(text).toContain('spend@0.3');
+    expect(text).toContain('[charge-routine]');
+    expect(text).toContain('charge@0.3');
     expect(text).toContain('Bounds:');
     expect(text).toContain('amount_max: 100');
   });
@@ -151,9 +151,9 @@ describe('list-authorizations', () => {
     const handler = listAuthorizationsHandler(mockState([
       {
         frameHash: 'sha256:abc',
-        profileId: 'spend@0.3',
-        path: 'spend-routine',
-        frame: { profile: 'spend@0.3', path: 'spend-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
+        profileId: 'charge@0.3',
+        path: 'charge-routine',
+        frame: { profile: 'charge@0.3', path: 'charge-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
         attestations: [{ domain: 'finance', blob: 'blob', expiresAt: now + 3600 }],
         requiredDomains: ['finance'],
         attestedDomains: ['finance'],
@@ -164,7 +164,7 @@ describe('list-authorizations', () => {
     const result = await handler({ domain: 'ship' });
     const text = result.content[0].text;
     expect(text).toContain('No authorizations found for domain "ship"');
-    expect(text).toContain('spend');
+    expect(text).toContain('charge');
   });
 
   it('compact overview includes call-to-action for domain details', async () => {
@@ -172,9 +172,9 @@ describe('list-authorizations', () => {
     const handler = listAuthorizationsHandler(mockState([
       {
         frameHash: 'sha256:abc',
-        profileId: 'spend@0.3',
-        path: 'spend-routine',
-        frame: { profile: 'spend@0.3', path: 'spend-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
+        profileId: 'charge@0.3',
+        path: 'charge-routine',
+        frame: { profile: 'charge@0.3', path: 'charge-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
         attestations: [{ domain: 'finance', blob: 'blob', expiresAt: now + 3600 }],
         requiredDomains: ['finance'],
         attestedDomains: ['finance'],
@@ -184,7 +184,7 @@ describe('list-authorizations', () => {
 
     const result = await handler();
     const text = result.content[0].text;
-    expect(text).toContain('list-authorizations(domain: "spend")');
+    expect(text).toContain('list-authorizations(domain: "charge")');
   });
 });
 
@@ -205,9 +205,9 @@ function mockGatedState(opts: {
   const now = Math.floor(Date.now() / 1000);
   const auth: CachedAuthorization = {
     frameHash: 'sha256:abc',
-    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
-    path: 'spend-routine',
-    frame: { profile: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3', path: 'spend-routine', amount_max: 100, currency: 'EUR', action_type: 'charge' },
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
+    path: 'charge-routine',
+    frame: { profile: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3', path: 'charge-routine', amount_max: 100, currency: 'EUR', action_type: 'charge' },
     attestations: [{ domain: 'finance', blob: 'blob', expiresAt: now + 3600 }],
     requiredDomains: ['finance'],
     attestedDomains: ['finance'],
@@ -261,15 +261,15 @@ describe('createGatedToolHandler — SP receipt integration', () => {
     const postReceipt = vi.fn().mockResolvedValue({ receipt: { id: 'r1' } });
     const state = mockGatedState({ postReceipt });
     const im = mockIntegrationManager();
-    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+    const handler = createGatedToolHandler(mockTool('charge'), im, state);
 
     const result = await handler({ amount: 50, currency: 'EUR' });
 
     expect(postReceipt).toHaveBeenCalledOnce();
     expect(postReceipt).toHaveBeenCalledWith(expect.objectContaining({
       attestationHash: 'sha256:abc',
-      profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
-      path: 'spend-routine',
+      profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
+      path: 'charge-routine',
       action: 'charge',
     }));
     expect((im.callTool as ReturnType<typeof vi.fn>)).toHaveBeenCalledOnce();
@@ -282,7 +282,7 @@ describe('createGatedToolHandler — SP receipt integration', () => {
     );
     const state = mockGatedState({ postReceipt });
     const im = mockIntegrationManager();
-    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+    const handler = createGatedToolHandler(mockTool('charge'), im, state);
 
     const result = await handler({ amount: 50, currency: 'EUR' });
 
@@ -297,7 +297,7 @@ describe('createGatedToolHandler — SP receipt integration', () => {
     const postReceipt = vi.fn().mockRejectedValue(new Error('fetch failed'));
     const state = mockGatedState({ postReceipt });
     const im = mockIntegrationManager();
-    const handler = createGatedToolHandler(mockTool('spend'), im, state);
+    const handler = createGatedToolHandler(mockTool('charge'), im, state);
 
     const result = await handler({ amount: 50, currency: 'EUR' });
 
@@ -413,7 +413,7 @@ describe('buildProxiedToolDescription', () => {
 
   it('returns gating tag with action type and checked fields for gated tool with auth', () => {
     const now = Math.floor(Date.now() / 1000);
-    const fullProfileId = 'github.com/humanagencyprotocol/hap-profiles/spend@0.3';
+    const fullProfileId = 'github.com/humanagencyprotocol/hap-profiles/charge@0.3';
     const tool: DiscoveredTool = {
       originalName: 'create_payment_link',
       namespacedName: 'stripe__create_payment_link',
@@ -421,7 +421,7 @@ describe('buildProxiedToolDescription', () => {
       description: 'Create a payment link',
       inputSchema: {},
       gating: {
-        profile: 'spend',
+        profile: 'charge',
         executionMapping: { unit_amount: { field: 'amount', divisor: 100 }, currency: 'currency' },
         staticExecution: { action_type: 'charge' },
       },
@@ -429,8 +429,8 @@ describe('buildProxiedToolDescription', () => {
     const state = mockState([{
       frameHash: 'sha256:abc',
       profileId: fullProfileId,
-      path: 'spend-routine',
-      frame: { profile: fullProfileId, path: 'spend-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
+      path: 'charge-routine',
+      frame: { profile: fullProfileId, path: 'charge-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
       attestations: [{ domain: 'finance', blob: 'blob', expiresAt: now + 3600 }],
       requiredDomains: ['finance'],
       attestedDomains: ['finance'],
@@ -438,7 +438,7 @@ describe('buildProxiedToolDescription', () => {
     }]);
 
     const desc = buildProxiedToolDescription(tool, state);
-    expect(desc).toContain('[HAP: spend');
+    expect(desc).toContain('[HAP: charge');
     expect(desc).toContain('charge');
     expect(desc).toContain('amount, currency checked');
     expect(desc).toContain('Create a payment link');
@@ -452,7 +452,7 @@ describe('buildProxiedToolDescription', () => {
       description: 'Create a payment link',
       inputSchema: {},
       gating: {
-        profile: 'spend',
+        profile: 'charge',
         executionMapping: { unit_amount: { field: 'amount', divisor: 100 } },
         staticExecution: { action_type: 'charge' },
       },
@@ -460,7 +460,7 @@ describe('buildProxiedToolDescription', () => {
     const state = mockState(); // no authorizations
 
     const desc = buildProxiedToolDescription(tool, state);
-    expect(desc).toContain('[HAP: spend — no active authorization]');
+    expect(desc).toContain('[HAP: charge — no active authorization]');
     expect(desc).toContain('Create a payment link');
   });
 });

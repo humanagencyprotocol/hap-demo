@@ -17,10 +17,10 @@ import type { ExecutionLogEntry } from '@hap/core';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PROFILE_A = 'github.com/humanagencyprotocol/hap-profiles/spend@0.4';
+const PROFILE_A = 'github.com/humanagencyprotocol/hap-profiles/charge@0.4';
 const PROFILE_B = 'github.com/humanagencyprotocol/hap-profiles/ship@0.4';
-const PATH_A = 'spend-routine';
-const PATH_B = 'spend-reviewed';
+const PATH_A = 'charge-routine';
+const PATH_B = 'charge-reviewed';
 
 const NOW = Math.floor(Date.now() / 1000);
 

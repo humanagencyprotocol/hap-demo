@@ -9,7 +9,7 @@ import type { ExecutionLog } from './execution-log';
 import type { EnrichedAuthorization } from './shared-state';
 
 export interface ConsumptionEntry {
-  /** Human-readable label, e.g. "Daily spend" */
+  /** Human-readable label, e.g. "Daily charge" */
   label: string;
   /** Current cumulative value */
   current: number;

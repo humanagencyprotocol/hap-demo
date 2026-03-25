@@ -13,7 +13,7 @@ import { getProfile } from '@hap/core';
 import { getConsumptionState, formatConsumptionCompact } from './consumption';
 import { getContextForBrief } from './context-loader';
 
-/** Extract short profile name from full ID (e.g., "github.com/.../spend@0.3" → "spend") */
+/** Extract short profile name from full ID (e.g., "github.com/.../charge@0.3" → "charge") */
 function shortProfileName(profileId: string): string {
   const withoutVersion = profileId.replace(/@.*$/, '');
   const parts = withoutVersion.split('/');

@@ -10,11 +10,11 @@ function mockAuth(overrides: Partial<EnrichedAuthorization> = {}): EnrichedAutho
   const now = Math.floor(Date.now() / 1000);
   return {
     frameHash: 'sha256:abc',
-    profileId: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
-    path: 'spend-routine',
+    profileId: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
+    path: 'charge-routine',
     frame: {
-      profile: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
-      path: 'spend-routine',
+      profile: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
+      path: 'charge-routine',
       amount_max: 100,
       currency: 'USD',
       action_type: 'charge',
@@ -33,7 +33,7 @@ function mockAuth(overrides: Partial<EnrichedAuthorization> = {}): EnrichedAutho
 
 function mockSpendProfile(): AgentProfile {
   return {
-    id: 'github.com/humanagencyprotocol/hap-profiles/spend@0.3',
+    id: 'github.com/humanagencyprotocol/hap-profiles/charge@0.3',
     version: '0.3',
     description: 'Financial authority',
     frameSchema: { keyOrder: [], fields: {} },
@@ -46,14 +46,14 @@ function mockSpendProfile(): AgentProfile {
           source: 'cumulative',
           cumulativeField: 'amount',
           window: 'daily',
-          description: 'Running daily spend total',
+          description: 'Running daily charge total',
           required: true,
         },
         amount_monthly: {
           source: 'cumulative',
           cumulativeField: 'amount',
           window: 'monthly',
-          description: 'Running monthly spend total',
+          description: 'Running monthly charge total',
           required: true,
         },
         transaction_count_daily: {
@@ -113,7 +113,7 @@ describe('getConsumptionState', () => {
 
   it('sets limit to null when frame has no matching _max field', () => {
     const auth = mockAuth({
-      frame: { profile: 'spend@0.3', path: 'spend-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
+      frame: { profile: 'charge@0.3', path: 'charge-routine', amount_max: 100, currency: 'USD', action_type: 'charge' },
     });
     const profile = mockSpendProfile();
     const log = mockLog({ amount: 50 });
@@ -126,10 +126,10 @@ describe('getConsumptionState', () => {
 });
 
 describe('formatConsumptionCompact', () => {
-  it('formats spend entries as compact string', () => {
+  it('formats charge entries as compact string', () => {
     const entries = [
-      { label: 'Daily spend', current: 234, limit: 500, window: 'daily', field: 'amount_daily' },
-      { label: 'Monthly spend', current: 1280, limit: 5000, window: 'monthly', field: 'amount_monthly' },
+      { label: 'Daily charge', current: 234, limit: 500, window: 'daily', field: 'amount_daily' },
+      { label: 'Monthly charge', current: 1280, limit: 5000, window: 'monthly', field: 'amount_monthly' },
       { label: 'Daily tx count', current: 8, limit: 20, window: 'daily', field: 'transaction_count_daily' },
     ];
 
@@ -152,12 +152,12 @@ describe('formatConsumptionCompact', () => {
 describe('formatConsumptionFull', () => {
   it('formats entries with aligned labels', () => {
     const entries = [
-      { label: 'Running daily spend total', current: 234, limit: 500, window: 'daily', field: 'amount_daily' },
+      { label: 'Running daily charge total', current: 234, limit: 500, window: 'daily', field: 'amount_daily' },
       { label: 'Running daily transaction count', current: 8, limit: 20, window: 'daily', field: 'transaction_count_daily' },
     ];
 
     const result = formatConsumptionFull(entries);
-    expect(result).toContain('Running daily spend total:');
+    expect(result).toContain('Running daily charge total:');
     expect(result).toContain('234 / 500');
     expect(result).toContain('Running daily transaction count:');
     expect(result).toContain('8 / 20');

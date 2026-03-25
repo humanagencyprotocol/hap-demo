@@ -48,7 +48,7 @@ function applyMapping(
   }
 }
 
-/** Match a short profile name (e.g. "spend") against a full qualified ID (e.g. "github.com/.../spend@0.3") */
+/** Match a short profile name (e.g. "charge") against a full qualified ID (e.g. "github.com/.../charge@0.3") */
 export function profileMatches(profileId: string, shortName: string): boolean {
   return profileId === shortName || profileId.includes('/' + shortName + '@') || profileId.endsWith('/' + shortName);
 }
@@ -225,9 +225,9 @@ export function createGatedToolHandler(
  * Build a description for a proxied tool that includes a short gating tag.
  *
  * Tags:
- * - [HAP: spend — read] — read-only, requires authorization
- * - [HAP: spend — charge, amount checked] — gated with specific checks
- * - [HAP: spend — no active authorization] — gated but no auth available
+ * - [HAP: charge — read] — read-only, requires authorization
+ * - [HAP: charge — charge, amount checked] — gated with specific checks
+ * - [HAP: charge — no active authorization] — gated but no auth available
  */
 export function buildProxiedToolDescription(
   tool: DiscoveredTool,

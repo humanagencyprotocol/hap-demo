@@ -54,16 +54,16 @@ async function del(path: string) {
 
 describe('MCP Gateway', () => {
   beforeAll(async () => {
-    // Create test profiles directory with a spend profile
-    mkdirSync(resolve(TEST_PROFILES_DIR, 'spend'), { recursive: true });
+    // Create test profiles directory with a charge profile
+    mkdirSync(resolve(TEST_PROFILES_DIR, 'charge'), { recursive: true });
     writeFileSync(resolve(TEST_PROFILES_DIR, 'index.json'), JSON.stringify({
       repository: 'test',
       profiles: {
-        'spend': 'spend/0.3.profile.json',
+        'charge': 'charge/0.3.profile.json',
       },
     }));
-    writeFileSync(resolve(TEST_PROFILES_DIR, 'spend/0.3.profile.json'), JSON.stringify({
-      id: 'spend',
+    writeFileSync(resolve(TEST_PROFILES_DIR, 'charge/0.3.profile.json'), JSON.stringify({
+      id: 'charge',
       version: '0.3',
       description: 'Test payment profile',
       frameSchema: { keyOrder: [], fields: {} },
@@ -247,7 +247,7 @@ describe('MCP Gateway', () => {
       command: 'npx',
       args: ['tsx', TEST_SERVER_PATH],
       envKeys: {},
-      profile: 'spend',
+      profile: 'charge',
       enabled: true,
     });
 
@@ -265,7 +265,7 @@ describe('MCP Gateway', () => {
     await client.connect(transport);
 
     try {
-      // All tools should be disabled — no active authorization for 'spend' profile
+      // All tools should be disabled — no active authorization for 'charge' profile
       // Both echo and add require authorization now (no ungated tools)
       try {
         await client.callTool({
