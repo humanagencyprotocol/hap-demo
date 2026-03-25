@@ -2,7 +2,7 @@
   "id": "records",
   "name": "Records",
   "version": "1.0.0",
-  "description": "Personal structured data — notes, documents, bookmarks, logs",
+  "description": "Personal knowledge store — notes, decisions, research, bookmarks managed by AI agents",
   "icon": "file-text",
   "profile": "records",
   "personalDefault": true,
@@ -20,12 +20,13 @@
   "toolGating": {
     "default": {
       "executionMapping": {},
-      "staticExecution": { "access_level": "read", "data_scope": "internal", "scope": "internal" }
+      "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
     },
     "overrides": {
-      "query_records": { "category": "read" },
-      "list_tables": { "category": "read" },
+      "search_records": { "category": "read" },
       "get_record": { "category": "read" },
+      "list_records": { "category": "read" },
+      "export_records": { "category": "read" },
       "create_record": {
         "executionMapping": {},
         "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
@@ -38,9 +39,9 @@
         "executionMapping": {},
         "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
       },
-      "export_records": {
+      "archive_record": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "read", "data_scope": "internal", "scope": "internal" }
+        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
       }
     }
   },
