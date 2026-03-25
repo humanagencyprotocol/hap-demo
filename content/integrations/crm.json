@@ -1,0 +1,65 @@
+{
+  "id": "crm",
+  "name": "CRM",
+  "version": "1.0.0",
+  "description": "Customer relationship management — contacts, activities, deals, tasks",
+  "icon": "users",
+  "profile": "customers",
+  "mcp": {
+    "command": "npx",
+    "args": ["-y", "@humanagencyp/crm-mcp@latest"]
+  },
+  "credentials": {
+    "fields": [
+      { "key": "databaseUrl", "label": "Database URL (optional)", "type": "text", "placeholder": "Leave empty for local SQLite" }
+    ],
+    "envMapping": { "DATABASE_URL": "databaseUrl" }
+  },
+  "oauth": null,
+  "toolGating": {
+    "default": {
+      "executionMapping": {},
+      "staticExecution": { "access_level": "read", "contact_type": "customer" }
+    },
+    "overrides": {
+      "create_contact": {
+        "executionMapping": { "type": "contact_type" },
+        "staticExecution": { "access_level": "write" }
+      },
+      "update_contact": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "delete_contact": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "log_activity": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "create_deal": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "update_deal": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "create_task": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "complete_task": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+      },
+      "find_contacts": { "category": "read" },
+      "get_timeline": { "category": "read" },
+      "get_pipeline": { "category": "read" },
+      "list_tasks": { "category": "read" },
+      "export_crm": { "category": "read" }
+    }
+  },
+  "setupHint": "No configuration needed for local use. Data is stored at ~/.hap/crm.db (SQLite). For team use, provide a Postgres connection string."
+}
