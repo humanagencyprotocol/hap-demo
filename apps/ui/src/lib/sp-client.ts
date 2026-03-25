@@ -129,7 +129,7 @@ export interface IntegrationManifest {
   profile: string;
   mcp: { command: string; args: string[]; env?: Record<string, string> };
   credentials: {
-    fields: Array<{ key: string; label: string; type: 'text' | 'password'; placeholder?: string }>;
+    fields: Array<{ key: string; label: string; type: 'text' | 'password'; placeholder?: string; optional?: boolean }>;
     envMapping: Record<string, string>;
   };
   oauth: {

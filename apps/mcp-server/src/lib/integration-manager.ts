@@ -261,7 +261,16 @@ export class IntegrationManager {
    */
   private resolveEnvKeys(config: IntegrationConfig): Record<string, string> {
     const env: Record<string, string> = {};
+    // Resolve required keys
     for (const [envVar, vaultRef] of Object.entries(config.envKeys)) {
+      const [serviceId, key] = vaultRef.split('.', 2);
+      const creds = this.serviceCredentials.get(serviceId);
+      if (creds && key in creds) {
+        env[envVar] = creds[key];
+      }
+    }
+    // Resolve optional keys (best-effort, won't block startup)
+    for (const [envVar, vaultRef] of Object.entries(config.optionalEnvKeys ?? {})) {
       const [serviceId, key] = vaultRef.split('.', 2);
       const creds = this.serviceCredentials.get(serviceId);
       if (creds && key in creds) {

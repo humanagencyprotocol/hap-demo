@@ -2,6 +2,7 @@
   "integrations": {
     "stripe": "stripe.json",
     "gmail": "gmail.json",
-    "crm": "crm.json"
+    "crm": "crm.json",
+    "records": "records.json"
   }
 }

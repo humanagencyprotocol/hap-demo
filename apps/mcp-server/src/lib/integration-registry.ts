@@ -47,6 +47,11 @@ export interface IntegrationConfig {
    * Example: { "STRIPE_API_KEY": "stripe.apiKey" }
    */
   envKeys: Record<string, string>;
+  /**
+   * Optional environment variable mapping — same format as envKeys but
+   * won't block startup if unresolved. Resolved if available in vault.
+   */
+  optionalEnvKeys?: Record<string, string>;
   /** Static environment variables for the MCP process (e.g., { PORT: "0" }) */
   env?: Record<string, string>;
   /** HAP profile ID for tool gating (e.g., "charge"). Null = ungated. */

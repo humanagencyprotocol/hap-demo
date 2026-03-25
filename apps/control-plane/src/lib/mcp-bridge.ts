@@ -109,14 +109,26 @@ export async function activateIntegration(manifest: {
   id: string;
   name: string;
   mcp: { command: string; args: string[]; env?: Record<string, string> };
-  credentials: { envMapping: Record<string, string> };
+  credentials: {
+    fields: Array<{ key: string; optional?: boolean }>;
+    envMapping: Record<string, string>;
+  };
   profile: string;
   toolGating?: unknown;
 }): Promise<unknown> {
-  // Construct envKeys by prepending integration ID to each credential key
+  // Construct envKeys by prepending integration ID to each credential key.
+  // Skip optional credential fields — the downstream server handles defaults.
+  const optionalKeys = new Set(
+    manifest.credentials.fields.filter(f => f.optional).map(f => f.key),
+  );
   const envKeys: Record<string, string> = {};
+  const optionalEnvKeys: Record<string, string> = {};
   for (const [envVar, credKey] of Object.entries(manifest.credentials.envMapping)) {
-    envKeys[envVar] = `${manifest.id}.${credKey}`;
+    if (optionalKeys.has(credKey)) {
+      optionalEnvKeys[envVar] = `${manifest.id}.${credKey}`;
+    } else {
+      envKeys[envVar] = `${manifest.id}.${credKey}`;
+    }
   }
 
   return addIntegration({
@@ -126,6 +138,7 @@ export async function activateIntegration(manifest: {
     args: manifest.mcp.args,
     env: manifest.mcp.env,
     envKeys,
+    ...(Object.keys(optionalEnvKeys).length > 0 ? { optionalEnvKeys } : {}),
     profile: manifest.profile,
     toolGating: manifest.toolGating,
     enabled: true,

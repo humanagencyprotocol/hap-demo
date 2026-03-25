@@ -11,10 +11,11 @@
   },
   "credentials": {
     "fields": [
-      { "key": "databaseUrl", "label": "Database URL (optional)", "type": "text", "placeholder": "Leave empty for local SQLite" }
+      { "key": "databaseUrl", "label": "Database URL (optional)", "type": "text", "placeholder": "Leave empty for local SQLite", "optional": true }
     ],
     "envMapping": { "DATABASE_URL": "databaseUrl" }
   },
+  "personalDefault": true,
   "oauth": null,
   "toolGating": {
     "default": {

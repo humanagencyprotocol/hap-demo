@@ -19,6 +19,7 @@ export interface ManifestCredentialField {
   label: string;
   type: 'text' | 'password';
   placeholder?: string;
+  optional?: boolean;
 }
 
 export interface ManifestOAuthConfig {
@@ -47,6 +48,7 @@ export interface IntegrationManifest {
     envMapping: Record<string, string>;
   };
   oauth: ManifestOAuthConfig | null;
+  personalDefault?: boolean;
   toolGating: ProfileToolGating;
   setupHint?: string;
 }

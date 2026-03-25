@@ -134,52 +134,70 @@ export function IntegrationCard({ manifest, integration, onStatusChange, onSucce
       )}
 
       {/* Unconfigured state — show credential form */}
-      {cardState === 'unconfigured' && (
-        <>
-          {manifest.setupHint && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: '0.75rem' }}>
-              {manifest.setupHint}
-            </p>
-          )}
-          {manifest.credentials.fields.map(field => (
-            <div className="form-group" key={field.key} style={{ marginBottom: '0.75rem' }}>
-              <label className="form-label">{field.label}</label>
-              {field.type === 'password' ? (
-                <div className="cred-field">
+      {cardState === 'unconfigured' && (() => {
+        const allOptional = manifest.credentials.fields.every(f => f.optional);
+        const hasRequiredFields = manifest.credentials.fields.some(f => !f.optional);
+        const hasValues = manifest.credentials.fields.some(f => credValues[f.key]?.trim());
+        return (
+          <>
+            {manifest.setupHint && (
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)', marginBottom: '0.75rem' }}>
+                {manifest.setupHint}
+              </p>
+            )}
+            {manifest.credentials.fields.map(field => (
+              <div className="form-group" key={field.key} style={{ marginBottom: '0.75rem' }}>
+                <label className="form-label">{field.label}</label>
+                {field.type === 'password' ? (
+                  <div className="cred-field">
+                    <input
+                      className="form-input"
+                      type={showSecrets[field.key] ? 'text' : 'password'}
+                      placeholder={field.placeholder}
+                      value={credValues[field.key] || ''}
+                      onChange={e => setCredValues(v => ({ ...v, [field.key]: e.target.value }))}
+                    />
+                    <button
+                      className="cred-toggle"
+                      onClick={() => setShowSecrets(s => ({ ...s, [field.key]: !s[field.key] }))}
+                    >
+                      {showSecrets[field.key] ? 'hide' : 'show'}
+                    </button>
+                  </div>
+                ) : (
                   <input
                     className="form-input"
-                    type={showSecrets[field.key] ? 'text' : 'password'}
+                    type="text"
                     placeholder={field.placeholder}
                     value={credValues[field.key] || ''}
                     onChange={e => setCredValues(v => ({ ...v, [field.key]: e.target.value }))}
                   />
-                  <button
-                    className="cred-toggle"
-                    onClick={() => setShowSecrets(s => ({ ...s, [field.key]: !s[field.key] }))}
-                  >
-                    {showSecrets[field.key] ? 'hide' : 'show'}
-                  </button>
-                </div>
-              ) : (
-                <input
-                  className="form-input"
-                  type="text"
-                  placeholder={field.placeholder}
-                  value={credValues[field.key] || ''}
-                  onChange={e => setCredValues(v => ({ ...v, [field.key]: e.target.value }))}
-                />
+                )}
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {hasValues && (
+                <button
+                  className="btn btn-primary"
+                  onClick={saveCredentials}
+                  disabled={saving || (hasRequiredFields && !manifest.credentials.fields.filter(f => !f.optional).every(f => credValues[f.key]?.trim()))}
+                >
+                  {saving ? 'Saving...' : 'Save & Encrypt'}
+                </button>
+              )}
+              {allOptional && !hasValues && (
+                <button
+                  className="btn btn-primary"
+                  onClick={activate}
+                  disabled={activating}
+                >
+                  {activating ? 'Starting...' : `Activate ${manifest.name}`}
+                </button>
               )}
             </div>
-          ))}
-          <button
-            className="btn btn-primary"
-            onClick={saveCredentials}
-            disabled={saving || !manifest.credentials.fields.some(f => credValues[f.key]?.trim())}
-          >
-            {saving ? 'Saving...' : 'Save & Encrypt'}
-          </button>
-        </>
-      )}
+          </>
+        );
+      })()}
 
       {/* Needs OAuth */}
       {cardState === 'needs-oauth' && (

@@ -1,0 +1,48 @@
+{
+  "id": "records",
+  "name": "Records",
+  "version": "1.0.0",
+  "description": "Personal structured data — notes, documents, bookmarks, logs",
+  "icon": "file-text",
+  "profile": "records",
+  "personalDefault": true,
+  "mcp": {
+    "command": "npx",
+    "args": ["-y", "@humanagencyp/records-mcp@latest"]
+  },
+  "credentials": {
+    "fields": [
+      { "key": "databaseUrl", "label": "Database URL (optional)", "type": "text", "placeholder": "Leave empty for local SQLite", "optional": true }
+    ],
+    "envMapping": { "DATABASE_URL": "databaseUrl" }
+  },
+  "oauth": null,
+  "toolGating": {
+    "default": {
+      "executionMapping": {},
+      "staticExecution": { "access_level": "read", "data_scope": "internal", "scope": "internal" }
+    },
+    "overrides": {
+      "query_records": { "category": "read" },
+      "list_tables": { "category": "read" },
+      "get_record": { "category": "read" },
+      "create_record": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
+      },
+      "update_record": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
+      },
+      "delete_record": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
+      },
+      "export_records": {
+        "executionMapping": {},
+        "staticExecution": { "access_level": "read", "data_scope": "internal", "scope": "internal" }
+      }
+    }
+  },
+  "setupHint": "No configuration needed for local use. Data is stored at ~/.hap/records.db (SQLite). For team use, provide a Postgres connection string."
+}

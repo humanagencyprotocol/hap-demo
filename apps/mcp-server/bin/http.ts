@@ -470,6 +470,40 @@ app.listen(port, '0.0.0.0', () => {
   loadProfiles();
   loadManifests();
 
+  // Personal mode: auto-register personalDefault integrations on first boot
+  if (process.env.HAP_MODE === 'personal' && integrationRegistry.getEnabled().length === 0) {
+    const personalManifests = getAllManifests().filter(m => m.personalDefault);
+    for (const manifest of personalManifests) {
+      // Build envKeys / optionalEnvKeys from manifest credential fields
+      const optionalKeys = new Set(
+        manifest.credentials.fields.filter(f => f.optional).map(f => f.key),
+      );
+      const envKeys: Record<string, string> = {};
+      const optionalEnvKeys: Record<string, string> = {};
+      for (const [envVar, credKey] of Object.entries(manifest.credentials.envMapping)) {
+        if (optionalKeys.has(credKey)) {
+          optionalEnvKeys[envVar] = `${manifest.id}.${credKey}`;
+        } else {
+          envKeys[envVar] = `${manifest.id}.${credKey}`;
+        }
+      }
+
+      integrationRegistry.add({
+        id: manifest.id,
+        name: manifest.name,
+        command: manifest.mcp.command,
+        args: manifest.mcp.args,
+        env: manifest.mcp.env,
+        envKeys,
+        ...(Object.keys(optionalEnvKeys).length > 0 ? { optionalEnvKeys } : {}),
+        profile: manifest.profile,
+        toolGating: manifest.toolGating,
+        enabled: true,
+      });
+      console.error(`[HAP MCP] Auto-registered personal integration: ${manifest.id}`);
+    }
+  }
+
   // Restore integrations from registry on startup
   startPendingIntegrations().then(() => {
     const running = integrationManager.getStatus().filter(s => s.running);
