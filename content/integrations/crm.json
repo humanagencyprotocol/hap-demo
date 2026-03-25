@@ -19,40 +19,40 @@
   "toolGating": {
     "default": {
       "executionMapping": {},
-      "staticExecution": { "access_level": "read", "contact_type": "customer" }
+      "staticExecution": { "contact_type": "customer" }
     },
     "overrides": {
       "create_contact": {
         "executionMapping": { "type": "contact_type" },
-        "staticExecution": { "access_level": "write" }
+        "staticExecution": {}
       },
       "update_contact": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "delete_contact": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "log_activity": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "create_deal": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "update_deal": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "create_task": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "complete_task": {
         "executionMapping": {},
-        "staticExecution": { "access_level": "write", "contact_type": "customer" }
+        "staticExecution": { "contact_type": "customer" }
       },
       "find_contacts": { "category": "read" },
       "get_timeline": { "category": "read" },
