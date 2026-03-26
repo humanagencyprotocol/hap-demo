@@ -6,11 +6,20 @@ import { ContextStrip } from '../components/ContextStrip';
 import { BoundsEditor } from '../components/BoundsEditor';
 import type { AgentProfile, AgentBoundsParams, AgentContextParams } from '@hap/core';
 
-const GATE_QUESTIONS = [
+const DEFAULT_GATE_QUESTIONS = [
   { key: 'problem', label: 'Problem', prompt: 'What problem does this agent authorization solve? Why is it needed right now?' },
   { key: 'objective', label: 'Objective', prompt: 'What should the agent achieve? What does success look like?' },
   { key: 'tradeoffs', label: 'Tradeoffs', prompt: 'What risks are you accepting? What constraints limit the exposure?' },
 ] as const;
+
+function getGateQuestions(profile: AgentProfile | null) {
+  if (!profile?.gateQuestions) return DEFAULT_GATE_QUESTIONS;
+  return [
+    { key: 'problem', label: 'Problem', prompt: profile.gateQuestions.problem?.question ?? DEFAULT_GATE_QUESTIONS[0].prompt },
+    { key: 'objective', label: 'Objective', prompt: profile.gateQuestions.objective?.question ?? DEFAULT_GATE_QUESTIONS[1].prompt },
+    { key: 'tradeoffs', label: 'Tradeoffs', prompt: profile.gateQuestions.tradeoffs?.question ?? DEFAULT_GATE_QUESTIONS[2].prompt },
+  ] as const;
+}
 
 interface AuthData {
   profileId: string;
@@ -97,8 +106,9 @@ export function GateWizardPage() {
     }
   };
 
+  const gateQuestions = getGateQuestions(profile);
   const currentGateKey = step === 3 ? 'problem' : step === 4 ? 'objective' : 'tradeoffs';
-  const currentGate = step >= 3 ? GATE_QUESTIONS[step - 3] : null;
+  const currentGate = step >= 3 ? gateQuestions[step - 3] : null;
 
   if (loading || !authData || !profile) {
     return <p style={{ color: 'var(--text-tertiary)' }}>Loading...</p>;
@@ -192,7 +202,7 @@ export function GateWizardPage() {
               onClick={handleGateNext}
               disabled={!gateContent[currentGateKey as keyof typeof gateContent].trim()}
             >
-              {step < 5 ? `Continue to ${GATE_QUESTIONS[step - 2].label}` : 'Continue to Review'}
+              {step < 5 ? `Continue to ${gateQuestions[step - 2].label}` : 'Continue to Review'}
             </button>
           </div>
         </div>

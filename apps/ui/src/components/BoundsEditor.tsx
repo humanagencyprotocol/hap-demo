@@ -322,7 +322,13 @@ export function BoundsEditor({ profile, pathId, onConfirm, readOnly, initialBoun
   const contextSchema = profile.contextSchema;
 
   const boundsFields = boundsSchema
-    ? Object.entries(boundsSchema.fields).filter(([key]) => key !== 'profile' && key !== 'path')
+    ? Object.entries(boundsSchema.fields).filter(([key, field]) => {
+        if (key === 'profile' || key === 'path') return false;
+        // If the field specifies which paths it applies to, filter by selected path
+        const fieldPaths = (field as any).paths as string[] | undefined;
+        if (fieldPaths && fieldPaths.length > 0 && !fieldPaths.includes(pathId)) return false;
+        return true;
+      })
     : [];
 
   const contextFields = contextSchema && contextSchema.keyOrder.length > 0

@@ -20,29 +20,17 @@
   "toolGating": {
     "default": {
       "executionMapping": {},
-      "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
+      "staticExecution": {}
     },
     "overrides": {
       "search_records": { "category": "read" },
       "get_record": { "category": "read" },
       "list_records": { "category": "read" },
       "export_records": { "category": "read" },
-      "create_record": {
-        "executionMapping": {},
-        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
-      },
-      "update_record": {
-        "executionMapping": {},
-        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
-      },
-      "delete_record": {
-        "executionMapping": {},
-        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
-      },
-      "archive_record": {
-        "executionMapping": {},
-        "staticExecution": { "access_level": "write", "data_scope": "internal", "scope": "internal" }
-      }
+      "create_record": { "executionMapping": {}, "staticExecution": {} },
+      "update_record": { "executionMapping": {}, "staticExecution": {} },
+      "delete_record": { "executionMapping": {}, "staticExecution": {} },
+      "archive_record": { "executionMapping": {}, "staticExecution": {} }
     }
   },
   "setupHint": "No configuration needed for local use. Data is stored at ~/.hap/records.db (SQLite). For team use, provide a Postgres connection string."

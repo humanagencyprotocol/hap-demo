@@ -7,6 +7,7 @@ import { GroupSelector } from '../components/GroupSelector';
 import { SelectionCard } from '../components/SelectionCard';
 import { DomainBadge } from '../components/DomainBadge';
 import { profileDisplayName } from '../lib/profile-display';
+import type { AgentProfile } from '@hap/core';
 
 export function AgentNewPage() {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ export function AgentNewPage() {
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [selectedPath, setSelectedPath] = useState<string>('');
   const [loading, setLoading] = useState(true);
+  const [fullProfile, setFullProfile] = useState<AgentProfile | null>(null);
 
   useEffect(() => {
     spClient.listProfiles()
@@ -29,6 +31,14 @@ export function AgentNewPage() {
   useEffect(() => {
     if (paths.length === 1) setSelectedPath(paths[0]);
   }, [selectedProfile, paths.length]);
+
+  // Fetch full profile for path descriptions when a profile is selected
+  useEffect(() => {
+    if (!selectedProfile) { setFullProfile(null); return; }
+    spClient.getProfile(selectedProfile)
+      .then(setFullProfile)
+      .catch(() => setFullProfile(null));
+  }, [selectedProfile]);
 
   const handleContinue = () => {
     if (!selectedProfile || !selectedPath) return;
@@ -96,9 +106,12 @@ export function AgentNewPage() {
               style={{ maxWidth: '20rem' }}
             >
               <option value="">Select a path...</option>
-              {paths.map(p => (
-                <option key={p} value={p}>{p}</option>
-              ))}
+              {paths.map(p => {
+                const desc = fullProfile?.executionPaths?.[p]?.description;
+                return (
+                  <option key={p} value={p}>{p}{desc ? ` — ${desc}` : ''}</option>
+                );
+              })}
             </select>
             <div className="form-hint">Determines which domain owners need to attest.</div>
           </div>
