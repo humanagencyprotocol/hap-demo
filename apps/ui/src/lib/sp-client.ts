@@ -269,6 +269,7 @@ class SPClient {
     execution_context_hash: string;
     group_id?: string;
     ttl?: number;
+    defer_commitment?: boolean;
   }): Promise<AttestResponse> {
     const res = await this.fetch('/api/sp/attest', {
       method: 'POST',

@@ -30,9 +30,10 @@ export function AgentReviewPage() {
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [gateData, setGateData] = useState<GateData | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
+  const [commitMode, setCommitMode] = useState<'immediate' | 'per-action'>('immediate');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState<{ frameHash: string; status: string } | null>(null);
+  const [success, setSuccess] = useState<{ frameHash: string; status: string; commitment: string } | null>(null);
 
   useEffect(() => {
     const authStored = sessionStorage.getItem('agentAuth');
@@ -81,7 +82,7 @@ export function AgentReviewPage() {
         })),
       ]);
 
-      // Attest first (creates the attestation on SP)
+      // Attest (creates the attestation on SP)
       const result = await spClient.attest({
         profile_id: authData.profileId,
         path: authData.path,
@@ -94,6 +95,7 @@ export function AgentReviewPage() {
         execution_context_hash: ecHash,
         group_id: authData.groupId,
         ttl: 1800,
+        defer_commitment: commitMode === 'per-action',
       });
 
       // Push gate content + context to MCP server (after attestation exists on SP)
@@ -105,7 +107,11 @@ export function AgentReviewPage() {
         gateContent: gateData.gateContent,
       });
 
-      setSuccess({ frameHash: result.bounds_hash ?? result.frame_hash ?? boundsHash, status: result.status });
+      setSuccess({
+        frameHash: result.bounds_hash ?? result.frame_hash ?? boundsHash,
+        status: result.status,
+        commitment: commitMode === 'per-action' ? 'per-action' : 'immediate',
+      });
       sessionStorage.removeItem('agentAuth');
       sessionStorage.removeItem('agentGate');
     } catch (e) {
@@ -127,6 +133,11 @@ export function AgentReviewPage() {
         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
           Status: <strong>{success.status}</strong>
           {success.status === 'pending' && ' — waiting for other domain owners to attest'}
+          {success.commitment === 'per-action' && (
+            <div style={{ marginTop: '0.5rem' }}>
+              Commitment: <strong>Per Action</strong> — you will review and commit to each agent action individually.
+            </div>
+          )}
         </div>
         <button className="btn btn-primary" onClick={() => navigate('/')}>
           Back to Dashboard
@@ -217,6 +228,49 @@ export function AgentReviewPage() {
           </div>
         </div>
 
+        {/* Commitment mode selection */}
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '1rem', marginBottom: '0.5rem' }}>
+          Commitment
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+          <button
+            onClick={() => setCommitMode('immediate')}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              border: commitMode === 'immediate' ? '2px solid var(--accent)' : '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              background: commitMode === 'immediate' ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontFamily: 'inherit',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Commit Now</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              All 6 gates close now. Agent acts freely within bounds.
+            </div>
+          </button>
+          <button
+            onClick={() => setCommitMode('per-action')}
+            style={{
+              flex: 1,
+              padding: '0.75rem',
+              border: commitMode === 'per-action' ? '2px solid var(--accent)' : '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              background: commitMode === 'per-action' ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+              cursor: 'pointer',
+              textAlign: 'left',
+              fontFamily: 'inherit',
+            }}
+          >
+            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Commit Per Action</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              Gates 1-5 close now. You review and commit to each action.
+            </div>
+          </button>
+        </div>
+
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-ghost" onClick={() => navigate('/agent/gate')}>Back</button>
           <button
@@ -225,7 +279,7 @@ export function AgentReviewPage() {
             onClick={handleCommit}
             disabled={submitting}
           >
-            {submitting ? 'Signing...' : 'Commit \u2014 Sign Attestation'}
+            {submitting ? 'Signing...' : commitMode === 'immediate' ? 'Authorize' : 'Authorize (Per Action)'}
           </button>
         </div>
 
