@@ -26,7 +26,7 @@ interface AuthData {
 
 export function AgentReviewPage() {
   const navigate = useNavigate();
-  const { user, activeGroup, activeDomain } = useAuth();
+  const { user, mode, domain: authDomain } = useAuth();
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [gateData, setGateData] = useState<GateData | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
@@ -65,7 +65,7 @@ export function AgentReviewPage() {
     setError('');
     try {
       // Personal mode (no group): use "owner" as domain. Group mode: use assigned domain.
-      const domain = authData.domain || activeDomain || 'owner';
+      const domain = authData.domain || authDomain;
 
       const boundsHash = await computeBoundsHashBrowser(gateData.bounds, profile);
       const contextHash = await computeContextHashBrowser(gateData.context, profile);
@@ -170,7 +170,7 @@ export function AgentReviewPage() {
           <dt>Path</dt>
           <dd>{authData.path}</dd>
           <dt>Domain</dt>
-          <dd>{authData.domain || activeDomain}</dd>
+          <dd>{authData.domain || authDomain}</dd>
           {authData.groupName && (
             <>
               <dt>Group</dt>
@@ -283,7 +283,7 @@ export function AgentReviewPage() {
           </button>
         </div>
 
-        {activeGroup && (
+        {mode === 'team' && (
           <div style={{ marginTop: '1rem', fontSize: '0.75rem', color: 'var(--text-tertiary)', textAlign: 'center' }}>
             This attestation may be pending until other required domain owners also attest.
           </div>

@@ -26,6 +26,7 @@ import { startUpdateChecker, getUpdateStatus } from './lib/update-checker';
 
 const SP_URL = process.env.HAP_SP_URL ?? 'https://www.humanagencyprotocol.com';
 const port = parseInt(process.env.HAP_CP_PORT ?? '3402', 10);
+const HAP_MODE = (process.env.HAP_MODE ?? 'personal') as 'personal' | 'team';
 
 // UI dist path: in Docker it's /app/ui/dist, locally fall back to sibling
 const UI_DIST = process.env.HAP_UI_DIST ?? join(import.meta.dirname ?? __dirname, '../../ui/dist');
@@ -288,6 +289,7 @@ app.get('/health', (_req: Request, res: Response) => {
   const update = getUpdateStatus();
   res.json({
     status: 'ok',
+    mode: HAP_MODE,
     vaultUnlocked: vault.isUnlocked(),
     version: update.runningSha,
     updateAvailable: update.updateAvailable,

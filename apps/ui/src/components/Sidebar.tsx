@@ -7,7 +7,8 @@ interface NavItem {
   to: string;
   icon: string;
   label: string;
-  statusKey?: 'integrations' | 'assistant' | 'authorizations';
+  statusKey?: 'integrations' | 'assistant' | 'authorizations' | 'proposals';
+  teamOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -15,7 +16,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/agent/new', icon: '\u25C8', label: 'Authorize Agents' },
   { to: '/authorizations', icon: '\u2630', label: 'Agent Authorizations', statusKey: 'authorizations' },
   { to: '/audit', icon: '\u25A3', label: 'Agent Receipts' },
-  { to: '/groups', icon: '\u25C9', label: 'Manage Groups' },
+  { to: '/groups', icon: '\u25C9', label: 'Manage Groups', teamOnly: true },
   { to: '/proposals', icon: '\u25B7', label: 'Proposals', statusKey: 'proposals' },
   { to: '/integrations', icon: '\u29D7', label: 'Integrations', statusKey: 'integrations' },
   { to: '/settings', icon: '\u2699', label: 'AI Assistant', statusKey: 'assistant' },
@@ -91,13 +92,15 @@ const DOT_STYLE: React.CSSProperties = {
 };
 
 export function Sidebar() {
-  const { activeGroup, activeDomain } = useAuth();
+  const { mode, group, domain } = useAuth();
   const warnings = useNavStatus();
+
+  const visibleItems = NAV_ITEMS.filter(item => !item.teamOnly || mode === 'team');
 
   return (
     <div className="sidebar">
       <ul className="sidebar-nav">
-        {NAV_ITEMS.map(item => (
+        {visibleItems.map(item => (
           <li key={item.to}>
             <NavLink
               to={item.to}
@@ -116,7 +119,7 @@ export function Sidebar() {
       <div className="sidebar-context">
         <div className="ctx-label">Active context</div>
         <div className="ctx-value">
-          {activeGroup ? `${activeGroup.name} / ${activeDomain}` : activeDomain || 'Not set'}
+          {mode === 'personal' ? 'personal' : group ? `${group.name} / ${domain}` : domain}
         </div>
       </div>
     </div>

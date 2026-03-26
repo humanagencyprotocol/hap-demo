@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { spClient, type ProfileSummary, type PendingItem } from '../lib/sp-client';
-import { GroupSelector } from '../components/GroupSelector';
 import { profileDisplayName } from '../lib/profile-display';
 import type { AgentProfile } from '@hap/core';
 
@@ -28,7 +27,7 @@ function getPathStatuses(attestations: PendingItem[]): Map<string, PathStatus> {
 
 export function AgentNewPage() {
   const navigate = useNavigate();
-  const { activeGroup, activeDomain } = useAuth();
+  const { mode, group, groupId, domain } = useAuth();
   const [profiles, setProfiles] = useState<ProfileSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [fullProfiles, setFullProfiles] = useState<Map<string, AgentProfile>>(new Map());
@@ -64,9 +63,9 @@ export function AgentNewPage() {
     sessionStorage.setItem('agentAuth', JSON.stringify({
       profileId,
       path,
-      groupId: activeGroup?.id,
-      groupName: activeGroup?.name,
-      domain: activeDomain,
+      groupId: mode === 'team' ? groupId : null,
+      groupName: mode === 'team' ? group?.name : null,
+      domain,
     }));
     navigate('/agent/gate');
   };

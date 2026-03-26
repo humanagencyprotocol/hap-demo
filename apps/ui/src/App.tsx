@@ -15,10 +15,11 @@ import { SettingsServicesPage } from './pages/SettingsServicesPage';
 import { ProposalReviewPage } from './pages/ProposalReviewPage';
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, groups, activeGroup, activeDomain } = useAuth();
+  const { user, mode, domain } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
-  // If user has no groups and no domain, show onboarding
-  if (groups.length === 0 && !activeDomain) return <Navigate to="/onboarding" replace />;
+  // Personal mode: always has domain='owner', skip onboarding
+  // Team mode: show onboarding if no domain set (no group joined yet)
+  if (mode === 'team' && !domain) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;
 }
 

@@ -10,41 +10,22 @@ import { TTLBadge } from '../components/TTLBadge';
 import { EmptyState } from '../components/EmptyState';
 
 export function DashboardPage() {
-  const { activeDomain, groups } = useAuth();
+  const { domain } = useAuth();
   const [myItems, setMyItems] = useState<PendingItem[]>([]);
   const [pendingItems, setPendingItems] = useState<PendingItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch all user's attestations (regardless of domain)
+    // Fetch all user's attestations
     const fetchMine = spClient.getMyAttestations().then(setMyItems).catch(() => {});
 
-    // Fetch pending reviews for all user's domains across all groups
-    const allDomains = new Set<string>();
-    if (activeDomain) allDomains.add(activeDomain);
-    for (const g of groups) {
-      for (const d of g.myDomains) allDomains.add(d);
-    }
-
-    const fetchPending = Promise.all(
-      [...allDomains].map(d => spClient.getPending(d).catch(() => []))
-    ).then(results => {
-      // Deduplicate by frame_hash
-      const seen = new Set<string>();
-      const merged: PendingItem[] = [];
-      for (const items of results) {
-        for (const item of items) {
-          if (!seen.has(item.frame_hash)) {
-            seen.add(item.frame_hash);
-            merged.push(item);
-          }
-        }
-      }
-      setPendingItems(merged);
-    });
+    // Fetch pending reviews for the user's domain
+    const fetchPending = domain
+      ? spClient.getPending(domain).then(setPendingItems).catch(() => {})
+      : Promise.resolve();
 
     Promise.all([fetchMine, fetchPending]).finally(() => setLoading(false));
-  }, [activeDomain, groups]);
+  }, [domain]);
 
   const activeItems = myItems.filter(p => p.remaining_seconds !== null && p.remaining_seconds > 0);
   const pendingReview = pendingItems.filter(p => p.missing_domains.length > 0);
