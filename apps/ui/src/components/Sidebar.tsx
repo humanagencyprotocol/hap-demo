@@ -7,13 +7,13 @@ interface NavItem {
   to: string;
   icon: string;
   label: string;
-  statusKey?: 'integrations' | 'assistant';
+  statusKey?: 'integrations' | 'assistant' | 'authorizations';
 }
 
 const NAV_ITEMS: NavItem[] = [
   { to: '/', icon: '\u25A1', label: 'Dashboard' },
   { to: '/agent/new', icon: '\u25C8', label: 'Authorize Agents' },
-  { to: '/authorizations', icon: '\u2630', label: 'Agent Authorizations' },
+  { to: '/authorizations', icon: '\u2630', label: 'Agent Authorizations', statusKey: 'authorizations' },
   { to: '/audit', icon: '\u25A3', label: 'Agent Receipts' },
   { to: '/groups', icon: '\u25C9', label: 'Manage Groups' },
   { to: '/integrations', icon: '\u29D7', label: 'Integrations', statusKey: 'integrations' },
@@ -21,32 +21,45 @@ const NAV_ITEMS: NavItem[] = [
 ];
 
 function useNavStatus() {
-  const [integrationStatus, setIntegrationStatus] = useState<'ok' | 'warn' | null>(null);
-  const [assistantStatus, setAssistantStatus] = useState<'ok' | 'warn' | null>(null);
+  const [statuses, setStatuses] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function poll() {
       try {
-        const [intData, healthData] = await Promise.all([
+        const [intData, healthData, authData] = await Promise.all([
           spClient.getMcpIntegrations().catch(() => null),
           spClient.getMcpHealth().catch(() => null),
+          spClient.getMyAttestations().catch(() => null),
         ]);
 
-        // Integrations: green if any running, red if none or any stopped
+        const next: Record<string, boolean> = {};
+
+        // Integrations: warn if any registered but not running
         if (intData?.integrations) {
           const all = intData.integrations;
-          if (all.length === 0) {
-            setIntegrationStatus(null);
-          } else {
-            const allRunning = all.every(i => i.running);
-            setIntegrationStatus(allRunning ? 'ok' : 'warn');
+          if (all.length > 0 && all.some(i => !i.running)) {
+            next.integrations = true;
           }
         }
 
-        // AI Assistant: green if active sessions, yellow if none
+        // AI Assistant: warn if no active sessions
         if (healthData) {
-          setAssistantStatus(healthData.activeSessions > 0 ? 'ok' : 'warn');
+          if (healthData.activeSessions === 0) {
+            next.assistant = true;
+          }
         }
+
+        // Authorizations: warn if any expired
+        if (authData) {
+          const hasExpired = authData.some(
+            a => a.remaining_seconds === null || a.remaining_seconds <= 0
+          );
+          if (hasExpired) {
+            next.authorizations = true;
+          }
+        }
+
+        setStatuses(next);
       } catch {
         // Ignore errors
       }
@@ -57,37 +70,40 @@ function useNavStatus() {
     return () => clearInterval(interval);
   }, []);
 
-  return { integrations: integrationStatus, assistant: assistantStatus };
+  return statuses;
 }
 
-function statusColor(status: 'ok' | 'warn' | null): string | undefined {
-  if (status === 'ok') return 'var(--success)';
-  if (status === 'warn') return 'var(--warning)';
-  return undefined;
-}
+const DOT_STYLE: React.CSSProperties = {
+  width: '0.4rem',
+  height: '0.4rem',
+  borderRadius: '50%',
+  background: 'var(--warning)',
+  flexShrink: 0,
+  marginLeft: 'auto',
+};
 
 export function Sidebar() {
   const { activeGroup, activeDomain } = useAuth();
-  const navStatus = useNavStatus();
+  const warnings = useNavStatus();
 
   return (
     <div className="sidebar">
       <ul className="sidebar-nav">
-        {NAV_ITEMS.map(item => {
-          const status = item.statusKey ? navStatus[item.statusKey] : null;
-          const color = statusColor(status);
-          return (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.to === '/'}
-                className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
-              >
-                <span className="icon" style={color ? { color } : undefined}>{item.icon}</span> {item.label}
-              </NavLink>
-            </li>
-          );
-        })}
+        {NAV_ITEMS.map(item => (
+          <li key={item.to}>
+            <NavLink
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) => `sidebar-item${isActive ? ' active' : ''}`}
+            >
+              <span className="icon">{item.icon}</span>
+              {item.label}
+              {item.statusKey && warnings[item.statusKey] && (
+                <span style={DOT_STYLE} />
+              )}
+            </NavLink>
+          </li>
+        ))}
       </ul>
       <div className="sidebar-context">
         <div className="ctx-label">Active context</div>

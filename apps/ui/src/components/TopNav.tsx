@@ -67,7 +67,11 @@ function DomainSwitcher() {
   );
 }
 
-export function TopNav() {
+interface TopNavProps {
+  onMenuToggle?: () => void;
+}
+
+export function TopNav({ onMenuToggle }: TopNavProps) {
   const { user, logout } = useAuth();
   const { theme, toggle } = useTheme();
 
@@ -79,7 +83,7 @@ export function TopNav() {
           <span className="version-badge">Alpha</span>
         </div>
         <div className="nav-spacer" />
-        <div className="nav-actions">
+        <div className="nav-actions nav-actions-desktop">
           {user ? (
             <>
               <span className="user-chip">
@@ -104,6 +108,11 @@ export function TopNav() {
             </>
           )}
         </div>
+        {user && onMenuToggle && (
+          <button className="mobile-menu-btn" onClick={onMenuToggle} aria-label="Menu">
+            {'\u2630'}
+          </button>
+        )}
       </div>
     </nav>
   );
