@@ -178,10 +178,22 @@ export function AuthorizationsPage() {
                   )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.5rem', alignItems: 'center' }}>
                   {item.required_domains.map(d => (
                     <DomainBadge key={d} domain={d} attested={item.attested_domains.includes(d)} />
                   ))}
+                  {item.deferred_commitment_domains.length > 0 && (
+                    <span style={{
+                      fontSize: '0.65rem',
+                      padding: '0.15rem 0.4rem',
+                      borderRadius: '0.25rem',
+                      background: 'var(--accent-subtle)',
+                      color: 'var(--accent)',
+                      fontWeight: 600,
+                    }}>
+                      Per Action
+                    </span>
+                  )}
                 </div>
 
                 {boundsEntries.length > 0 && (

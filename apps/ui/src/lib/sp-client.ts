@@ -49,6 +49,7 @@ export interface PendingItem {
   required_domains: string[];
   attested_domains: string[];
   missing_domains: string[];
+  deferred_commitment_domains: string[];
   created_at: string;
   earliest_expiry: string | null;
   remaining_seconds: number | null;
@@ -305,6 +306,7 @@ class SPClient {
       missing_domains: (a.requiredDomains as string[] ?? []).filter(
         (d: string) => !(a.attestedDomains as string[] ?? []).includes(d)
       ),
+      deferred_commitment_domains: a.deferredCommitmentDomains ?? [],
       created_at: a.createdAt ? new Date((a.createdAt as number) * 1000).toISOString() : '',
       earliest_expiry: (a.attestations as Array<{expiresAt: number}> | undefined)?.length
         ? new Date(Math.min(...(a.attestations as Array<{expiresAt: number}>).map(att => att.expiresAt)) * 1000).toISOString()
