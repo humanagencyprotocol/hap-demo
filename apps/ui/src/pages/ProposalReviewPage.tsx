@@ -30,8 +30,8 @@ export function ProposalReviewPage() {
     setResolving(id);
     setMessage('');
     try {
-      const domain = domain || 'owner';
-      const result = await spClient.resolveProposal(id, action, domain);
+      const resolveDomain = domain || 'owner';
+      const result = await spClient.resolveProposal(id, action, resolveDomain);
       if (action === 'commit') {
         setMessage(`Proposal committed. Status: ${result.status}`);
       } else {
