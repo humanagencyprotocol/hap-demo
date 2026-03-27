@@ -21,14 +21,21 @@ function internalHeaders(): Record<string, string> {
 }
 
 export async function configure(sessionCookie: string, vaultKeyHex?: string): Promise<void> {
-  const res = await fetch(`${MCP_BASE}/internal/configure`, {
-    method: 'POST',
-    headers: internalHeaders(),
-    body: JSON.stringify({ sessionCookie, vaultKeyHex }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: 'Unknown error' }));
-    throw new Error(`MCP configure failed: ${(err as { error: string }).error}`);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  try {
+    const res = await fetch(`${MCP_BASE}/internal/configure`, {
+      method: 'POST',
+      headers: internalHeaders(),
+      body: JSON.stringify({ sessionCookie, vaultKeyHex }),
+      signal: controller.signal,
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(`MCP configure failed: ${(err as { error: string }).error}`);
+    }
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
