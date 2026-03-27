@@ -14,10 +14,10 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { to: '/', icon: '\u25A1', label: 'Dashboard' },
   { to: '/agent/new', icon: '\u25C8', label: 'Authorize Agents' },
+  { to: '/proposals', icon: '\u25B7', label: 'Agent Proposals', statusKey: 'proposals' },
   { to: '/authorizations', icon: '\u2630', label: 'Agent Authorizations', statusKey: 'authorizations' },
   { to: '/audit', icon: '\u25A3', label: 'Agent Receipts' },
   { to: '/groups', icon: '\u25C9', label: 'Manage Groups', teamOnly: true },
-  { to: '/proposals', icon: '\u25B7', label: 'Proposals', statusKey: 'proposals' },
   { to: '/integrations', icon: '\u29D7', label: 'Integrations', statusKey: 'integrations' },
   { to: '/settings', icon: '\u2699', label: 'AI Assistant', statusKey: 'assistant' },
 ];
