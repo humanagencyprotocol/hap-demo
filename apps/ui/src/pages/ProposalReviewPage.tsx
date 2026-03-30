@@ -33,9 +33,9 @@ export function ProposalReviewPage() {
       const resolveDomain = domain || 'owner';
       const result = await spClient.resolveProposal(id, action, resolveDomain);
       if (action === 'commit') {
-        setMessage(`Proposal committed. Status: ${result.status}`);
+        setMessage(`Action approved. Status: ${result.status}`);
       } else {
-        setMessage('Proposal rejected.');
+        setMessage('Action rejected.');
       }
       await fetchProposals();
     } catch (err) {
@@ -53,9 +53,9 @@ export function ProposalReviewPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Proposals</h1>
+        <h1 className="page-title">Pending Reviews</h1>
         <p className="page-subtitle">
-          Agent actions awaiting your commitment. Review and commit or reject each action.
+          Agent actions awaiting your review. Approve or reject each action.
         </p>
       </div>
 
@@ -67,9 +67,9 @@ export function ProposalReviewPage() {
         <p style={{ color: 'var(--text-tertiary)' }}>Loading...</p>
       ) : proposals.length === 0 ? (
         <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <p style={{ color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>No pending proposals</p>
+          <p style={{ color: 'var(--text-tertiary)', marginBottom: '0.5rem' }}>No pending reviews</p>
           <p style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-            When an agent calls a tool with deferred commitment, proposals appear here for your review.
+            When an agent calls a tool with deferred commitment, actions will appear here for your review.
           </p>
         </div>
       ) : (
@@ -149,7 +149,7 @@ export function ProposalReviewPage() {
                     onClick={() => handleResolve(p.id, 'commit')}
                     disabled={isResolving}
                   >
-                    {isResolving ? 'Committing...' : 'Commit'}
+                    {isResolving ? 'Approving...' : 'Approve'}
                   </button>
                   <button
                     className="btn btn-ghost"

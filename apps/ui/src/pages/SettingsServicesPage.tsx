@@ -122,7 +122,7 @@ export function SettingsServicesPage() {
     <>
       <div className="page-header">
         <h1 className="page-title">AI Assistant</h1>
-        <p className="page-subtitle">Advisory AI to help you think through gates when authorizing agents.</p>
+        <p className="page-subtitle">Advisory AI to help you think through intent when authorizing agents.</p>
       </div>
 
       {/* Vault banner */}

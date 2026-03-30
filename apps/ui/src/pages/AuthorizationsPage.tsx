@@ -122,8 +122,8 @@ export function AuthorizationsPage() {
   return (
     <>
       <div className="page-header">
-        <h1 className="page-title">Agent Authorizations</h1>
-        <p className="page-subtitle">Manage active, pending, and expired agent authorizations.</p>
+        <h1 className="page-title">Authorizations</h1>
+        <p className="page-subtitle">Active, pending, and expired agent authorizations.</p>
       </div>
 
       {/* Filter tabs */}
@@ -191,7 +191,7 @@ export function AuthorizationsPage() {
                       color: 'var(--accent)',
                       fontWeight: 600,
                     }}>
-                      Per Action
+                      Review Mode
                     </span>
                   )}
                 </div>

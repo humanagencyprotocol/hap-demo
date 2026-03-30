@@ -39,8 +39,8 @@ export function DashboardPage() {
 
   for (const p of pendingProposals) {
     attentionItems.push({
-      label: 'Proposal pending',
-      detail: `${p.tool} awaiting your commitment`,
+      label: 'Review pending',
+      detail: `${p.tool} awaiting your review`,
       to: '/proposals',
       color: 'var(--warning)',
     });
@@ -107,7 +107,7 @@ export function DashboardPage() {
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: active.length > 0 ? 'var(--success)' : 'var(--text-tertiary)' }}>
               {active.length}
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active Authorizations</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Active</div>
           </div>
         </Link>
         <Link to="/proposals" style={{ textDecoration: 'none' }}>
@@ -115,7 +115,7 @@ export function DashboardPage() {
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: pendingProposals.length > 0 ? 'var(--warning)' : 'var(--text-tertiary)' }}>
               {pendingProposals.length}
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Pending Proposals</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Pending Reviews</div>
           </div>
         </Link>
         <Link to="/authorizations" style={{ textDecoration: 'none' }}>
@@ -160,7 +160,7 @@ export function DashboardPage() {
         </div>
       ) : (
         <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
-          <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>All clear. No actions needed.</div>
+          <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>All clear. Nothing needs your attention.</div>
         </div>
       )}
     </>

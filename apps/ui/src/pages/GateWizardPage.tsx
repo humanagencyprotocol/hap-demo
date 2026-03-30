@@ -7,17 +7,17 @@ import { BoundsEditor } from '../components/BoundsEditor';
 import type { AgentProfile, AgentBoundsParams, AgentContextParams } from '@hap/core';
 
 const DEFAULT_GATE_QUESTIONS = [
-  { key: 'problem', label: 'Problem', prompt: 'What problem does this agent authorization solve? Why is it needed right now?' },
-  { key: 'objective', label: 'Objective', prompt: 'What should the agent achieve? What does success look like?' },
-  { key: 'tradeoffs', label: 'Tradeoffs', prompt: 'What risks are you accepting? What constraints limit the exposure?' },
+  { key: 'problem', label: 'Why', prompt: 'Why does the agent need this? What problem are you solving?' },
+  { key: 'objective', label: 'Goal', prompt: 'What should the agent achieve? What does success look like?' },
+  { key: 'tradeoffs', label: 'Risks', prompt: 'What risks are you accepting? What limits the exposure?' },
 ] as const;
 
 function getGateQuestions(profile: AgentProfile | null) {
   if (!profile?.gateQuestions) return DEFAULT_GATE_QUESTIONS;
   return [
-    { key: 'problem', label: 'Problem', prompt: profile.gateQuestions.problem?.question ?? DEFAULT_GATE_QUESTIONS[0].prompt },
-    { key: 'objective', label: 'Objective', prompt: profile.gateQuestions.objective?.question ?? DEFAULT_GATE_QUESTIONS[1].prompt },
-    { key: 'tradeoffs', label: 'Tradeoffs', prompt: profile.gateQuestions.tradeoffs?.question ?? DEFAULT_GATE_QUESTIONS[2].prompt },
+    { key: 'problem', label: 'Why', prompt: profile.gateQuestions.problem?.question ?? DEFAULT_GATE_QUESTIONS[0].prompt },
+    { key: 'objective', label: 'Goal', prompt: profile.gateQuestions.objective?.question ?? DEFAULT_GATE_QUESTIONS[1].prompt },
+    { key: 'tradeoffs', label: 'Risks', prompt: profile.gateQuestions.tradeoffs?.question ?? DEFAULT_GATE_QUESTIONS[2].prompt },
   ] as const;
 }
 

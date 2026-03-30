@@ -105,8 +105,8 @@ export function GroupsPage() {
     <>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div>
-          <h1 className="page-title">Manage Groups</h1>
-          <p className="page-subtitle">Manage your teams and domain authority.</p>
+          <h1 className="page-title">Team</h1>
+          <p className="page-subtitle">Manage your team and role assignments.</p>
         </div>
         <button className="btn btn-primary" onClick={() => document.getElementById('create-group-section')?.scrollIntoView({ behavior: 'smooth' })}>
           Create Group

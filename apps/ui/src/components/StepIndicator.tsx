@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 
-const STEP_LABELS = ['Bounds', 'Problem', 'Objective', 'Tradeoffs', 'Review', 'Authorize'];
+const STEP_LABELS = ['Limits', 'Why', 'Goal', 'Risks', 'Review', 'Authorize'];
 
 interface Props {
   currentStep: number; // 2-7

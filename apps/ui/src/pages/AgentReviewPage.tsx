@@ -128,14 +128,14 @@ export function AgentReviewPage() {
   if (success) {
     return (
       <div className="success-card">
-        <div className="success-card-title">Attestation Committed</div>
+        <div className="success-card-title">Authorization Created</div>
         <div className="success-card-hash">{success.frameHash}</div>
         <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
           Status: <strong>{success.status}</strong>
           {success.status === 'pending' && ' — waiting for other domain owners to attest'}
           {success.commitment === 'per-action' && (
             <div style={{ marginTop: '0.5rem' }}>
-              Commitment: <strong>Per Action</strong> — you will review and commit to each agent action individually.
+              Commitment: <strong>Review Mode</strong> — you will review and commit to each agent action individually.
             </div>
           )}
         </div>
@@ -246,9 +246,9 @@ export function AgentReviewPage() {
               fontFamily: 'inherit',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Commit Now</div>
+            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Automatic</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              All 6 gates close now. Agent acts freely within bounds.
+              Agent acts freely within your limits.
             </div>
           </button>
           <button
@@ -264,9 +264,9 @@ export function AgentReviewPage() {
               fontFamily: 'inherit',
             }}
           >
-            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Commit Per Action</div>
+            <div style={{ fontWeight: 600, fontSize: '0.85rem', marginBottom: '0.25rem' }}>Review Each Action</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Gates 1-5 close now. You review and commit to each action.
+              You review and approve each action before it executes.
             </div>
           </button>
         </div>
@@ -279,7 +279,7 @@ export function AgentReviewPage() {
             onClick={handleCommit}
             disabled={submitting}
           >
-            {submitting ? 'Signing...' : commitMode === 'immediate' ? 'Authorize' : 'Authorize (Per Action)'}
+            {submitting ? 'Signing...' : commitMode === 'immediate' ? 'Authorize' : 'Authorize (Review Mode)'}
           </button>
         </div>
 
