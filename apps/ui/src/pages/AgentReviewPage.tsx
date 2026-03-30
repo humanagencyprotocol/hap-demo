@@ -31,6 +31,10 @@ export function AgentReviewPage() {
   const [gateData, setGateData] = useState<GateData | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
   const [commitMode, setCommitMode] = useState<'immediate' | 'per-action'>('immediate');
+  const [ttlSeconds, setTtlSeconds] = useState(1800);
+  const [ttlMax, setTtlMax] = useState(86400);
+  const [customTtl, setCustomTtl] = useState('');
+  const [customTtlUnit, setCustomTtlUnit] = useState<'hours' | 'days'>('hours');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ frameHash: string; status: string; commitment: string } | null>(null);
@@ -53,6 +57,12 @@ export function AgentReviewPage() {
 
     setAuthData(auth);
     setGateData(normalizedGate);
+
+    // Set TTL from profile config
+    if (gate.ttlConfig) {
+      setTtlSeconds(gate.ttlConfig.default ?? 1800);
+      setTtlMax(gate.ttlConfig.max ?? 86400);
+    }
 
     spClient.getProfile(auth.profileId)
       .then(p => setProfile(p))
@@ -94,7 +104,7 @@ export function AgentReviewPage() {
         gate_content_hashes: { problem: problemHash, objective: objectiveHash, tradeoffs: tradeoffsHash },
         execution_context_hash: ecHash,
         group_id: authData.groupId,
-        ttl: 1800,
+        ttl: ttlSeconds,
         defer_commitment: commitMode === 'per-action',
       });
 
@@ -269,6 +279,71 @@ export function AgentReviewPage() {
               You review and approve each action before it executes.
             </div>
           </button>
+        </div>
+
+        {/* Duration selector */}
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+          Duration
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+          {[
+            { label: '1 hour', seconds: 3600 },
+            { label: '24 hours', seconds: 86400 },
+            { label: '7 days', seconds: 604800 },
+            { label: '30 days', seconds: 2592000 },
+          ].filter(p => p.seconds <= ttlMax).map(preset => (
+            <button
+              key={preset.seconds}
+              onClick={() => { setTtlSeconds(preset.seconds); setCustomTtl(''); }}
+              style={{
+                padding: '0.35rem 0.7rem',
+                border: ttlSeconds === preset.seconds ? '2px solid var(--accent)' : '1px solid var(--border)',
+                borderRadius: '0.375rem',
+                background: ttlSeconds === preset.seconds ? 'var(--accent-subtle)' : 'var(--bg-elevated)',
+                cursor: 'pointer', fontSize: '0.8rem', fontFamily: 'inherit',
+              }}
+            >
+              {preset.label}
+            </button>
+          ))}
+          <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+            <input
+              type="number"
+              className="form-input"
+              style={{ width: '4rem', padding: '0.3rem 0.5rem', fontSize: '0.8rem' }}
+              placeholder="Custom"
+              value={customTtl}
+              onChange={e => {
+                setCustomTtl(e.target.value);
+                const num = parseInt(e.target.value, 10);
+                if (num > 0) {
+                  const secs = customTtlUnit === 'days' ? num * 86400 : num * 3600;
+                  setTtlSeconds(Math.min(secs, ttlMax));
+                }
+              }}
+            />
+            <select
+              className="form-input"
+              style={{ padding: '0.3rem 0.4rem', fontSize: '0.8rem' }}
+              value={customTtlUnit}
+              onChange={e => {
+                setCustomTtlUnit(e.target.value as 'hours' | 'days');
+                const num = parseInt(customTtl, 10);
+                if (num > 0) {
+                  const secs = e.target.value === 'days' ? num * 86400 : num * 3600;
+                  setTtlSeconds(Math.min(secs, ttlMax));
+                }
+              }}
+            >
+              <option value="hours">hours</option>
+              <option value="days">days</option>
+            </select>
+          </div>
+          {ttlSeconds > ttlMax && (
+            <span style={{ fontSize: '0.75rem', color: 'var(--danger)' }}>
+              Maximum: {ttlMax >= 86400 ? `${Math.floor(ttlMax / 86400)} days` : `${Math.floor(ttlMax / 3600)} hours`}
+            </span>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem' }}>

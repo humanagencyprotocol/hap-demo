@@ -73,8 +73,9 @@ export function GateWizardPage() {
       setStep(step + 1);
       setAiResponse(null);
     } else {
-      // Save gate content and navigate to review
-      sessionStorage.setItem('agentGate', JSON.stringify({ bounds, context, gateContent }));
+      // Save gate content + TTL config and navigate to review
+      const pathTtl = profile?.executionPaths?.[authData!.path]?.ttl ?? profile?.ttl;
+      sessionStorage.setItem('agentGate', JSON.stringify({ bounds, context, gateContent, ttlConfig: pathTtl }));
       navigate('/agent/review');
     }
   };
