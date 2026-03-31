@@ -1,18 +1,21 @@
 /**
- * GHCR update checker — compares the running image digest against latest.
- * Checks every hour. No-op when running in local dev (HAP_BUILD_SHA=dev).
+ * GHCR update checker — compares running build against latest on GHCR.
+ *
+ * Checks on startup (30s delay) then once per day.
+ *
+ * If HAP_BUILD_SHA is 'dev' or not found on GHCR → update available.
+ * If running digest differs from latest → update available.
  */
 
 const IMAGE = 'humanagencyprotocol/hap-gateway';
-const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
+const CHECK_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 const INITIAL_DELAY = 30_000; // 30 seconds after boot
 
 let updateAvailable = false;
-let latestDigest: string | null = null;
-const runningSha = process.env.HAP_BUILD_SHA ?? 'dev';
+const buildSha = process.env.HAP_BUILD_SHA ?? 'dev';
 
 export function getUpdateStatus() {
-  return { updateAvailable, runningSha };
+  return { updateAvailable, runningSha: buildSha };
 }
 
 async function getToken(): Promise<string> {
@@ -39,31 +42,29 @@ async function getDigest(tag: string, token: string): Promise<string | null> {
 }
 
 async function check(): Promise<void> {
-  if (runningSha === 'dev') return;
+  try {
+    const token = await getToken();
+    const latestDigest = await getDigest('latest', token);
+    if (!latestDigest) return;
 
-  const token = await getToken();
-  const shortSha = runningSha.slice(0, 7);
+    if (buildSha === 'dev') {
+      updateAvailable = true;
+      return;
+    }
 
-  const [latest, running] = await Promise.all([
-    getDigest('latest', token),
-    getDigest(shortSha, token),
-  ]);
+    const runningDigest = await getDigest(buildSha.slice(0, 7), token);
 
-  if (latest && running && latest !== running) {
-    updateAvailable = true;
-    latestDigest = latest;
-  } else if (latest && !running) {
-    // Running SHA not found in registry — likely an old or local build
-    updateAvailable = true;
-    latestDigest = latest;
-  } else {
-    updateAvailable = false;
+    if (!runningDigest || runningDigest !== latestDigest) {
+      updateAvailable = true;
+    } else {
+      updateAvailable = false;
+    }
+  } catch {
+    // GHCR unreachable — skip
   }
 }
 
 export function startUpdateChecker(): void {
-  if (runningSha === 'dev') return;
-
   setTimeout(() => {
     check().catch(() => {});
     setInterval(() => check().catch(() => {}), CHECK_INTERVAL);
