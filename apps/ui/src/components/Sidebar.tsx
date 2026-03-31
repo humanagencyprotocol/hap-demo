@@ -29,9 +29,9 @@ function useNavStatus() {
   useEffect(() => {
     async function poll() {
       try {
-        const [intData, healthData, authData, proposalData] = await Promise.all([
+        const [intData, aiStatus, authData, proposalData] = await Promise.all([
           spClient.getMcpIntegrations().catch(() => null),
-          spClient.getMcpHealth().catch(() => null),
+          spClient.getCredential('ai-config').catch(() => null),
           spClient.getMyAttestations().catch(() => null),
           spClient.getProposals(activeDomain || 'owner').catch(() => null),
         ]);
@@ -46,11 +46,9 @@ function useNavStatus() {
           }
         }
 
-        // AI Assistant: warn if no active sessions
-        if (healthData) {
-          if (healthData.activeSessions === 0) {
-            next.assistant = true;
-          }
+        // AI Assistant: warn if not configured
+        if (aiStatus && !aiStatus.configured) {
+          next.assistant = true;
         }
 
         // Authorizations: warn if any expired
