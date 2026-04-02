@@ -23,7 +23,7 @@
   "oauth": {
     "authUrl": "https://www.linkedin.com/oauth/v2/authorization",
     "tokenUrl": "https://www.linkedin.com/oauth/v2/accessToken",
-    "scopes": ["openid", "profile", "email", "w_member_social"],
+    "scopes": ["w_member_social"],
     "credentialKeys": { "clientId": "clientId", "clientSecret": "clientSecret" },
     "tokenStorage": "accessToken",
     "extraParams": {}
