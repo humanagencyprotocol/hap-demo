@@ -139,7 +139,7 @@ export function SettingsServicesPage() {
       <div className="card">
         <h3 className="card-title">Configuration</h3>
         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-          Configure an AI model to provide advisory suggestions during the gate wizard. Keys are encrypted in your vault.
+          Connect a trusted AI model that has access to your intent — problem, objective, and tradeoffs — to help you think through authorizations. Keys are encrypted in your vault.
         </p>
 
         {aiConfigured && (
