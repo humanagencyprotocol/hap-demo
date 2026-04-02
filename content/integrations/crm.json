@@ -62,5 +62,15 @@
       "export_crm": { "category": "read" }
     }
   },
-  "setupHint": "No configuration needed for local use. Data is stored at ~/.hap/crm.db (SQLite). For team use, provide a Postgres connection string."
+  "setupHint": "No configuration needed — works out of the box.",
+  "setupGuide": [
+    {
+      "title": "Ready to use",
+      "description": "The CRM stores data locally on your machine. No external account or API key needed."
+    },
+    {
+      "title": "Optional: use a shared database",
+      "description": "For team use, provide a PostgreSQL connection string in the Database URL field. Otherwise, leave it empty to use local SQLite storage."
+    }
+  ]
 }

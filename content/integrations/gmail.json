@@ -72,5 +72,30 @@
       "get_profile": { "category": "read" }
     }
   },
-  "setupHint": "Create OAuth credentials at Google Cloud Console (enable Gmail API, create OAuth 2.0 Client ID, type: Web application)."
+  "setupHint": "Create OAuth credentials at Google Cloud Console.",
+  "setupGuide": [
+    {
+      "title": "Create a Google Cloud project",
+      "description": "Go to the Google Cloud Console and create a new project (or use an existing one).",
+      "link": "https://console.cloud.google.com/projectcreate"
+    },
+    {
+      "title": "Enable the Gmail API",
+      "description": "In your project, go to APIs & Services > Library, search for 'Gmail API', and enable it.",
+      "link": "https://console.cloud.google.com/apis/library/gmail.googleapis.com"
+    },
+    {
+      "title": "Create OAuth credentials",
+      "description": "Go to APIs & Services > Credentials > Create Credentials > OAuth 2.0 Client ID. Choose 'Web application'. Add your gateway callback URL as an authorized redirect URI.",
+      "link": "https://console.cloud.google.com/apis/credentials"
+    },
+    {
+      "title": "Add the redirect URI",
+      "description": "Under Authorized redirect URIs, add: http://localhost:7400/auth/oauth/gmail/callback (or your gateway URL)."
+    },
+    {
+      "title": "Enter your credentials below",
+      "description": "Copy the Client ID and Client Secret from your OAuth client and paste them below."
+    }
+  ]
 }

@@ -67,5 +67,21 @@
       "list_payment_methods": { "category": "read" }
     }
   },
-  "setupHint": "Use a test key (sk_test_...) for development."
+  "setupHint": "Use a test key (sk_test_...) for development.",
+  "setupGuide": [
+    {
+      "title": "Create a Stripe account",
+      "description": "Sign up at stripe.com if you don't have an account yet.",
+      "link": "https://dashboard.stripe.com/register"
+    },
+    {
+      "title": "Get your API key",
+      "description": "Go to Developers > API keys in your Stripe dashboard. Copy the Secret Key (starts with sk_live_ or sk_test_).",
+      "link": "https://dashboard.stripe.com/apikeys"
+    },
+    {
+      "title": "Enter your key below",
+      "description": "Paste your Secret Key in the field below. Use a test key (sk_test_...) for development."
+    }
+  ]
 }

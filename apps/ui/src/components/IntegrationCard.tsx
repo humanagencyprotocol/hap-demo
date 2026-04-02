@@ -20,6 +20,7 @@ export function IntegrationCard({ manifest, integration, onStatusChange, onSucce
   const [credConfigured, setCredConfigured] = useState(false);
   const [oauthConnected, setOauthConnected] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [activating, setActivating] = useState(false);
   const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
@@ -115,6 +116,69 @@ export function IntegrationCard({ manifest, integration, onStatusChange, onSucce
         </div>
         {manifest.profile && <span className="profile-badge">{manifest.profile}</span>}
       </div>
+
+      {/* Setup Guide (collapsible) */}
+      {manifest.setupGuide && manifest.setupGuide.length > 0 && cardState !== 'running' && (
+        <div style={{ marginBottom: '0.75rem' }}>
+          <button
+            onClick={() => setShowGuide(!showGuide)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              fontSize: '0.8rem',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.375rem',
+            }}
+          >
+            <span style={{ transition: 'transform 0.2s', transform: showGuide ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>{'\u25B6'}</span>
+            How to set up {manifest.name}
+          </button>
+          {showGuide && (
+            <div style={{ marginTop: '0.75rem', paddingLeft: '0.25rem' }}>
+              {manifest.setupGuide.map((step: { title: string; description: string; link?: string }, i: number) => (
+                <div key={i} style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                  <div style={{
+                    width: '1.5rem',
+                    height: '1.5rem',
+                    borderRadius: '50%',
+                    background: 'var(--border)',
+                    color: 'var(--text-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    flexShrink: 0,
+                    marginTop: '0.1rem',
+                  }}>
+                    {i + 1}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.125rem' }}>
+                      {step.title}
+                    </div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                      {step.description}
+                      {step.link && (
+                        <>
+                          {' '}
+                          <a href={step.link} target="_blank" rel="noopener noreferrer" style={{ fontSize: '0.8rem' }}>
+                            Open {'\u2197'}
+                          </a>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Running state */}
       {cardState === 'running' && integration && (

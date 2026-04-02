@@ -61,5 +61,33 @@
       "get_profile": { "category": "read" }
     }
   },
-  "setupHint": "Create a LinkedIn App at linkedin.com/developers. Add 'Share on LinkedIn' and 'Sign In with LinkedIn using OpenID Connect' products. Use the Client ID and Secret from your app settings."
+  "setupHint": "Requires a LinkedIn App with 'Share on LinkedIn' product.",
+  "setupGuide": [
+    {
+      "title": "Create a LinkedIn Company Page",
+      "description": "You need a Company Page to register an app. Create one if you don't have one.",
+      "link": "https://www.linkedin.com/company/setup/new/"
+    },
+    {
+      "title": "Create a LinkedIn App",
+      "description": "Go to LinkedIn Developers and create a new app. Link it to your Company Page.",
+      "link": "https://www.linkedin.com/developers/apps/new"
+    },
+    {
+      "title": "Add required products",
+      "description": "In your app's Products tab, add 'Share on LinkedIn' and 'Sign In with LinkedIn using OpenID Connect'. This gives your app permission to post."
+    },
+    {
+      "title": "Verify your app",
+      "description": "Go to Settings > Company verification. Open the verification URL as a Page Admin and approve it."
+    },
+    {
+      "title": "Add the redirect URI",
+      "description": "In the Auth tab, add your gateway callback URL as an authorized redirect URI: http://localhost:7400/auth/oauth/linkedin/callback"
+    },
+    {
+      "title": "Enter your credentials below",
+      "description": "Copy the Client ID and Client Secret from the Auth tab and paste them below."
+    }
+  ]
 }

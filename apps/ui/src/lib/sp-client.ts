@@ -143,6 +143,7 @@ export interface IntegrationManifest {
   } | null;
   toolGating: unknown;
   setupHint?: string;
+  setupGuide?: Array<{ title: string; description: string; link?: string }>;
 }
 
 export interface McpIntegrationStatus {
