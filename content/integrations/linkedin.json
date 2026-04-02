@@ -1,0 +1,65 @@
+{
+  "id": "linkedin",
+  "name": "LinkedIn",
+  "version": "1.0.0",
+  "description": "Publish posts, articles, and media to LinkedIn",
+  "icon": "share",
+  "profile": "publish",
+  "mcp": {
+    "command": "npx",
+    "args": ["-y", "@humanagencyp/linkedin-mcp@latest"]
+  },
+  "credentials": {
+    "fields": [
+      { "key": "clientId", "label": "Client ID", "type": "text", "placeholder": "From LinkedIn Developer Portal" },
+      { "key": "clientSecret", "label": "Client Secret", "type": "password", "placeholder": "OAuth2 client secret" }
+    ],
+    "envMapping": {
+      "LINKEDIN_CLIENT_ID": "clientId",
+      "LINKEDIN_CLIENT_SECRET": "clientSecret",
+      "LINKEDIN_ACCESS_TOKEN": "accessToken"
+    }
+  },
+  "oauth": {
+    "authUrl": "https://www.linkedin.com/oauth/v2/authorization",
+    "tokenUrl": "https://www.linkedin.com/oauth/v2/accessToken",
+    "scopes": ["openid", "profile", "email", "w_member_social"],
+    "credentialKeys": { "clientId": "clientId", "clientSecret": "clientSecret" },
+    "tokenStorage": "accessToken",
+    "extraParams": {}
+  },
+  "toolGating": {
+    "default": {
+      "executionMapping": {},
+      "staticExecution": { "allowed_platforms": "linkedin" }
+    },
+    "overrides": {
+      "create_post": {
+        "executionMapping": {
+          "visibility": "audience"
+        },
+        "staticExecution": { "allowed_platforms": "linkedin", "content_type": "text" }
+      },
+      "create_image_post": {
+        "executionMapping": {
+          "visibility": "audience"
+        },
+        "staticExecution": { "allowed_platforms": "linkedin", "content_type": "image" }
+      },
+      "create_article_post": {
+        "executionMapping": {
+          "visibility": "audience"
+        },
+        "staticExecution": { "allowed_platforms": "linkedin", "content_type": "link" }
+      },
+      "delete_post": {
+        "executionMapping": {},
+        "staticExecution": { "allowed_platforms": "linkedin" }
+      },
+      "get_post": { "category": "read" },
+      "list_posts": { "category": "read" },
+      "get_profile": { "category": "read" }
+    }
+  },
+  "setupHint": "Create a LinkedIn App at linkedin.com/developers. Add 'Share on LinkedIn' and 'Sign In with LinkedIn using OpenID Connect' products. Use the Client ID and Secret from your app settings."
+}
