@@ -89,18 +89,6 @@ export function IntegrationsPage() {
             </p>
           )}
 
-          {/* How it works */}
-          <div className="card">
-            <h3 className="card-title">How Gating Works</h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Read-only tools are <strong>ungated</strong> and available to the agent immediately.
-              Write tools require an active authorization matching the integration's profile.
-            </p>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginTop: '0.5rem' }}>
-              For financial integrations, amounts in cents are automatically converted to currency units
-              before checking against your authorization bounds.
-            </p>
-          </div>
         </>
       )}
     </>
