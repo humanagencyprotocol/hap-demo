@@ -165,8 +165,10 @@ export function AuthorizationsPage() {
               <div className="card" key={item.frame_hash} style={{ marginBottom: 0 }}>
                 {/* Collapsed view */}
                 <div className="auth-card-header">
+                  {item.title && (
+                    <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--text-primary)' }}>{item.title}</span>
+                  )}
                   <ProfileBadge profileId={item.profile_id} />
-                  <span className="auth-card-path">{item.path}</span>
                   <StatusBadge status={status} />
                   {status === 'active' && item.earliest_expiry && (
                     <TTLBadge expiresAt={new Date(item.earliest_expiry).getTime() / 1000} />

@@ -301,6 +301,9 @@ app.get('/health', (_req: Request, res: Response) => {
     vaultUnlocked: vault.isUnlocked(),
     version: update.runningSha,
     updateAvailable: update.updateAvailable,
+    security: {
+      note: 'Gateway secures tool execution. Agent host isolation is the user\'s responsibility.',
+    },
   });
 });
 

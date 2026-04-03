@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { spClient, type PendingItem, type Proposal, type McpIntegrationStatus } from '../lib/sp-client';
+import { SetupGuide } from '../components/SetupGuide';
 
 const EXPIRY_WARN_SECONDS = 30 * 60; // 30 minutes
 
@@ -15,6 +16,7 @@ export function DashboardPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [integrations, setIntegrations] = useState<McpIntegrationStatus[]>([]);
   const [aiConfigured, setAiConfigured] = useState(true);
+  const [activeSessions, setActiveSessions] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,6 +25,7 @@ export function DashboardPage() {
       spClient.getProposals(domain).then(setProposals).catch(() => {}),
       spClient.getMcpIntegrations().then(d => setIntegrations(d.integrations ?? [])).catch(() => {}),
       spClient.getCredential('ai-config').then(s => setAiConfigured(s.configured)).catch(() => {}),
+      spClient.getMcpHealth().then(h => setActiveSessions(h.activeSessions ?? 0)).catch(() => {}),
     ]).finally(() => setLoading(false));
   }, [domain]);
 
@@ -50,7 +53,7 @@ export function DashboardPage() {
     const mins = Math.ceil((a.remaining_seconds ?? 0) / 60);
     attentionItems.push({
       label: 'Expiring soon',
-      detail: `${shortProfile(a.profile_id)} / ${a.path} — ${mins} min remaining`,
+      detail: `${a.title ?? shortProfile(a.profile_id)} — ${mins} min remaining`,
       to: '/authorizations',
       color: 'var(--warning)',
     });
@@ -59,7 +62,7 @@ export function DashboardPage() {
   for (const a of expired) {
     attentionItems.push({
       label: 'Expired',
-      detail: `${shortProfile(a.profile_id)} / ${a.path}`,
+      detail: a.title ?? shortProfile(a.profile_id),
       to: '/authorizations',
       color: 'var(--danger)',
     });
@@ -99,6 +102,15 @@ export function DashboardPage() {
       <div className="page-header">
         <h1 className="page-title">Dashboard</h1>
       </div>
+
+      {/* Setup guide */}
+      <SetupGuide
+        aiConfigured={aiConfigured}
+        hasRunningIntegration={integrations.some(i => i.running)}
+        hasActiveAuth={active.length > 0}
+        hasAgentConnected={activeSessions > 0}
+        mcpEndpoint={`http://localhost:${window.location.port === '3400' ? '3430' : '7430'}`}
+      />
 
       {/* Status bar */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>

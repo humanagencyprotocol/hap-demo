@@ -2,7 +2,7 @@
   "id": "records",
   "name": "Records",
   "version": "1.0.0",
-  "description": "Personal knowledge store — notes, decisions, research, bookmarks managed by AI agents",
+  "description": "Personal knowledge store — notes, decisions, research, bookmarks managed by AI agents. Records are immutable once created.",
   "icon": "file-text",
   "profile": "records",
   "personalDefault": true,
@@ -23,21 +23,21 @@
       "staticExecution": {}
     },
     "overrides": {
-      "search_records": { "category": "read" },
-      "get_record": { "category": "read" },
-      "list_records": { "category": "read" },
-      "export_records": { "category": "read" },
+      "list_records": { "category": "read", "boundField": "read_access", "requiredValue": "unlimited" },
+      "get_record": { "category": "read", "boundField": "read_access", "requiredValue": "unlimited" },
+      "search_records": { "category": "read", "boundField": "read_access", "requiredValue": "unlimited" },
+      "export_records": { "boundField": "export_access", "requiredValue": "allowed", "executionMapping": {}, "staticExecution": {} },
       "create_record": { "executionMapping": {}, "staticExecution": {} },
-      "update_record": { "executionMapping": {}, "staticExecution": {} },
-      "delete_record": { "executionMapping": {}, "staticExecution": {} },
-      "archive_record": { "executionMapping": {}, "staticExecution": {} }
+      "archive_record": { "boundField": "archive_access", "requiredValue": "allowed", "executionMapping": {}, "staticExecution": {} },
+      "update_record": { "category": "disabled" },
+      "delete_record": { "category": "disabled" }
     }
   },
   "setupHint": "No configuration needed — works out of the box.",
   "setupGuide": [
     {
       "title": "Ready to use",
-      "description": "Records stores data locally on your machine. No external account or API key needed. Your AI agents can create notes, decisions, research, and bookmarks."
+      "description": "Records stores data locally on your machine. No external account or API key needed. Your AI agents can create notes, decisions, research, and bookmarks. Records are immutable — once created, they cannot be edited or deleted."
     },
     {
       "title": "Optional: use a shared database",

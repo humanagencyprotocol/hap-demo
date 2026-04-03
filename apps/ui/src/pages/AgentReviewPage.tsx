@@ -34,6 +34,7 @@ export function AgentReviewPage() {
   const [ttlMax, setTtlMax] = useState(86400);
   const [customTtl, setCustomTtl] = useState('');
   const [customTtlUnit, setCustomTtlUnit] = useState<'hours' | 'days'>('hours');
+  const [authTitle, setAuthTitle] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<{ frameHash: string; status: string; commitment: string } | null>(null);
@@ -103,6 +104,7 @@ export function AgentReviewPage() {
         group_id: authData.groupId,
         ttl: ttlSeconds,
         defer_commitment: commitMode === 'per-action',
+        title: authTitle.trim(),
       });
 
       // Push gate content + context to MCP server (after attestation exists on SP)
@@ -342,13 +344,32 @@ export function AgentReviewPage() {
           )}
         </div>
 
+        {/* Title */}
+        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>
+          Title
+        </div>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <input
+            type="text"
+            className="form-input"
+            placeholder={`e.g. ${profileDisplayName(authData.profileId)}: daily operations`}
+            value={authTitle}
+            onChange={e => setAuthTitle(e.target.value)}
+            maxLength={80}
+            style={{ fontSize: '0.9rem' }}
+          />
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '0.25rem' }}>
+            A short name to identify this authorization on your dashboard.
+          </div>
+        </div>
+
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button className="btn btn-ghost" onClick={() => navigate('/agent/gate')}>Back</button>
           <button
             className="btn btn-primary btn-lg"
             style={{ flex: 1 }}
             onClick={handleCommit}
-            disabled={submitting}
+            disabled={submitting || !authTitle.trim()}
           >
             {submitting ? 'Signing...' : commitMode === 'immediate' ? 'Authorize' : 'Authorize (Review Mode)'}
           </button>

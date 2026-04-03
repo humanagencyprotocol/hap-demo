@@ -5,27 +5,27 @@ const PROVIDER_CONFIG: Record<string, { provider: string; endpoint: string; mode
   ollama: {
     provider: 'ollama',
     endpoint: 'http://localhost:11434',
-    models: ['llama3.2', 'llama3.1', 'mistral', 'codellama', 'gemma2', 'phi3', 'qwen2.5'],
-  },
-  openai: {
-    provider: 'openai-compatible',
-    endpoint: 'https://api.openai.com/v1',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-3.5-turbo', 'o3-mini'],
-  },
-  groq: {
-    provider: 'openai-compatible',
-    endpoint: 'https://api.groq.com/openai/v1',
-    models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it', 'mixtral-8x7b-32768'],
-  },
-  together: {
-    provider: 'openai-compatible',
-    endpoint: 'https://api.together.xyz/v1',
-    models: ['meta-llama/Llama-3-8b-chat-hf', 'meta-llama/Llama-3-70b-chat-hf', 'mistralai/Mixtral-8x7B-Instruct-v0.1'],
+    models: ['gemma4:12b', 'gemma4:27b', 'llama3.2', 'llama3.1', 'mistral', 'qwen2.5', 'phi3'],
   },
   openrouter: {
     provider: 'openai-compatible',
     endpoint: 'https://openrouter.ai/api/v1',
-    models: ['anthropic/claude-sonnet-4', 'anthropic/claude-haiku-4', 'openai/gpt-4o-mini', 'openai/gpt-4o', 'google/gemini-2.5-flash', 'meta-llama/llama-3.1-8b-instruct'],
+    models: ['google/gemma-4-31b-it', 'qwen/qwen3.6-plus:free', 'stepfun/step-3.5-flash:free', 'google/gemini-2.5-flash', 'openai/gpt-4o-mini', 'anthropic/claude-haiku-4'],
+  },
+  openai: {
+    provider: 'openai-compatible',
+    endpoint: 'https://api.openai.com/v1',
+    models: ['gpt-4o-mini', 'gpt-4o', 'o3-mini'],
+  },
+  groq: {
+    provider: 'openai-compatible',
+    endpoint: 'https://api.groq.com/openai/v1',
+    models: ['llama-3.1-8b-instant', 'llama-3.3-70b-versatile', 'gemma2-9b-it'],
+  },
+  together: {
+    provider: 'openai-compatible',
+    endpoint: 'https://api.together.xyz/v1',
+    models: ['meta-llama/Llama-3-8b-chat-hf', 'meta-llama/Llama-3-70b-chat-hf'],
   },
 };
 
@@ -33,10 +33,10 @@ export function SettingsServicesPage() {
   const [successMsg, setSuccessMsg] = useState('');
 
   // AI config state
-  const [aiPreset, setAiPreset] = useState('ollama');
-  const [aiProvider, setAiProvider] = useState('ollama');
-  const [aiEndpoint, setAiEndpoint] = useState('http://localhost:11434');
-  const [aiModel, setAiModel] = useState('llama3.2');
+  const [aiPreset, setAiPreset] = useState('openrouter');
+  const [aiProvider, setAiProvider] = useState('openai-compatible');
+  const [aiEndpoint, setAiEndpoint] = useState('https://openrouter.ai/api/v1');
+  const [aiModel, setAiModel] = useState('google/gemma-4-31b-it');
   const [aiApiKey, setAiApiKey] = useState('');
   const [aiConfigured, setAiConfigured] = useState(false);
   const [aiSaving, setAiSaving] = useState(false);
@@ -156,11 +156,11 @@ export function SettingsServicesPage() {
             value={aiPreset}
             onChange={e => handleAiPresetChange(e.target.value)}
           >
+            <option value="openrouter">OpenRouter (recommended)</option>
             <option value="ollama">Ollama (local)</option>
             <option value="openai">OpenAI</option>
             <option value="groq">Groq</option>
             <option value="together">Together</option>
-            <option value="openrouter">OpenRouter</option>
           </select>
         </div>
 
@@ -228,6 +228,31 @@ export function SettingsServicesPage() {
             {aiTestResult}
           </div>
         )}
+      </div>
+
+      {/* Security guidance */}
+      <div className="card" style={{ padding: '1.5rem', marginTop: '2rem' }}>
+        <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1rem' }}>Security</h2>
+
+        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.7 }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.375rem' }}>What the gateway protects</div>
+            <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+              <li>Every tool call verified against your authorization bounds</li>
+              <li>Credentials never exposed to agents through MCP</li>
+              <li>Every action produces a signed receipt</li>
+            </ul>
+          </div>
+
+          <div>
+            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.375rem' }}>Your responsibility</div>
+            <ul style={{ margin: 0, paddingLeft: '1.25rem' }}>
+              <li>If your AI agent has full access to your computer, it could bypass the gateway</li>
+              <li>For best security, run agents in sandboxed environments</li>
+              <li>The gateway secures what agents do through tools — not what they do on your machine</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </>
   );

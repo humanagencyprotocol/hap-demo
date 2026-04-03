@@ -45,6 +45,7 @@ export interface PendingItem {
   frame_hash: string;
   profile_id: string;
   path: string;
+  title: string | null;
   frame: Record<string, string | number>;
   required_domains: string[];
   attested_domains: string[];
@@ -289,6 +290,7 @@ class SPClient {
     group_id?: string;
     ttl?: number;
     defer_commitment?: boolean;
+    title?: string;
   }): Promise<AttestResponse> {
     const res = await this.fetch('/api/sp/attest', {
       method: 'POST',
@@ -318,6 +320,7 @@ class SPClient {
       frame_hash: a.boundsHash ?? a.frameHash,
       profile_id: a.profileId,
       path: a.path,
+      title: a.title ?? null,
       frame: a.bounds ?? a.frame ?? {},
       required_domains: a.requiredDomains ?? [],
       attested_domains: a.attestedDomains ?? [],

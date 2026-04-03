@@ -19,7 +19,12 @@ export const PROVIDER_PRESETS: Record<string, AIConfig> = {
   ollama: {
     provider: 'ollama',
     endpoint: 'http://localhost:11434',
-    model: 'llama3.2',
+    model: 'gemma4:12b',
+  },
+  openrouter: {
+    provider: 'openai-compatible',
+    endpoint: 'https://openrouter.ai/api/v1',
+    model: 'google/gemma-4-31b-it',
   },
   openai: {
     provider: 'openai-compatible',
@@ -35,11 +40,6 @@ export const PROVIDER_PRESETS: Record<string, AIConfig> = {
     provider: 'openai-compatible',
     endpoint: 'https://api.together.xyz/v1',
     model: 'meta-llama/Llama-3-8b-chat-hf',
-  },
-  openrouter: {
-    provider: 'openai-compatible',
-    endpoint: 'https://openrouter.ai/api/v1',
-    model: 'anthropic/claude-sonnet-4',
   },
 };
 
