@@ -36,10 +36,10 @@ export function LoginPage() {
         <div className="login-split-left">
           <div style={{ maxWidth: '28rem' }}>
             <h1 style={{ fontSize: 'clamp(2.25rem, 4vw, 3.25rem)', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: '1.25rem' }}>
-              Let your AI agents act —<br /><span style={{ color: 'var(--accent)' }}>within bounds you control.</span>
+              Let your AI agents act<br /><span style={{ color: 'var(--accent)' }}>within bounds you control.</span>
             </h1>
             <p style={{ fontSize: '1.125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '3rem' }}>
-              Define what your agents are allowed to do. Every action is bounded, time-limited, and traceable to your decision.
+              The gateway runs on your machine, between your agents and the tools they use. Nothing executes without your authorization.
             </p>
             <div style={{ display: 'grid', gap: '2rem' }}>
               {FEATURES.map(f => (
