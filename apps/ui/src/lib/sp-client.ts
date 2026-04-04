@@ -615,7 +615,7 @@ class SPClient {
     boundsHash?: string;    // v0.4
     contextHash?: string;   // v0.4
     context?: Record<string, string | number>;  // v0.4
-    path: string;
+    path?: string;
     gateContent: Record<string, string>;
   }): Promise<void> {
     const res = await this.fetch('/gate-content', {

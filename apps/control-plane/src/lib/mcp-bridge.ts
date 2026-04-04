@@ -44,8 +44,8 @@ export async function pushGateContent(data: {
   boundsHash?: string;
   contextHash?: string;
   context?: Record<string, string | number>;
-  path: string;
-  gateContent: { problem: string; objective: string; tradeoffs: string };
+  path?: string;
+  gateContent: Record<string, string>;
 }): Promise<void> {
   const res = await fetch(`${MCP_BASE}/internal/gate-content`, {
     method: 'POST',

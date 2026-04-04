@@ -139,12 +139,12 @@ app.post('/internal/configure', internalOnly, (req: Request, res: Response) => {
 
 app.post('/internal/gate-content', internalOnly, async (req: Request, res: Response) => {
   try {
-    const { frameHash, boundsHash, contextHash, context, path, gateContent } = req.body as {
+    const { frameHash, boundsHash, contextHash, context, path: rawPath, gateContent } = req.body as {
       frameHash?: string;
       boundsHash?: string;      // v0.4
       contextHash?: string;     // v0.4
       context?: Record<string, string | number>;  // v0.4
-      path: string;
+      path?: string;            // optional in v0.4 (execution paths removed)
       gateContent: GateContent;
     };
 
@@ -172,6 +172,9 @@ app.post('/internal/gate-content', internalOnly, async (req: Request, res: Respo
       res.status(400).json({ error: 'Gate content hash mismatch', details: verification.errors });
       return;
     }
+
+    // Use provided path, or fall back to profile ID (v0.4: execution paths removed)
+    const path = rawPath || auth.profileId;
 
     // Store gate content (encrypted if vault key is set), passing v0.4 fields through
     state.setGateContent(path, storageHash, auth.profileId, gateContent, {
