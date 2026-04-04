@@ -12,6 +12,7 @@ type Status = 'active' | 'pending' | 'expired' | 'revoked';
 
 function getStatus(item: PendingItem, revokedSet: Set<string>): Status {
   if (revokedSet.has(item.frame_hash)) return 'revoked';
+  if (item.sp_status === 'revoked') return 'revoked';
   if (item.remaining_seconds === null || item.remaining_seconds <= 0) return 'expired';
   if (item.missing_domains.length > 0) return 'pending';
   return 'active';

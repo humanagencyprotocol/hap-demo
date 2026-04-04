@@ -46,6 +46,7 @@ export interface PendingItem {
   profile_id: string;
   path: string;
   title: string | null;
+  sp_status: string | null;
   frame: Record<string, string | number>;
   required_domains: string[];
   attested_domains: string[];
@@ -321,6 +322,7 @@ class SPClient {
       profile_id: a.profileId,
       path: a.path,
       title: a.title ?? null,
+      sp_status: (a.status as string) ?? null,
       frame: a.bounds ?? a.frame ?? {},
       required_domains: a.requiredDomains ?? [],
       attested_domains: a.attestedDomains ?? [],
