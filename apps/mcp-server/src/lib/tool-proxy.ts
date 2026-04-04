@@ -161,6 +161,8 @@ export function createGatedToolHandler(
         context: auth.context,
       });
 
+      if (!result.approved) {
+      }
       if (result.approved) {
         // Check for deferred commitment domains — submit proposal instead of executing
         if (auth.deferredCommitmentDomains.length > 0) {

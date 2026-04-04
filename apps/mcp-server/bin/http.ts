@@ -476,8 +476,8 @@ app.listen(port, '0.0.0.0', () => {
   loadProfiles();
   loadManifests();
 
-  // Personal mode: auto-register personalDefault integrations on first boot
-  if (process.env.HAP_MODE === 'personal' && integrationRegistry.getEnabled().length === 0) {
+  // Auto-register personalDefault integrations on first boot (no integrations registered yet)
+  if (integrationRegistry.getEnabled().length === 0) {
     const personalManifests = getAllManifests().filter(m => m.personalDefault);
     for (const manifest of personalManifests) {
       // Build envKeys / optionalEnvKeys from manifest credential fields
