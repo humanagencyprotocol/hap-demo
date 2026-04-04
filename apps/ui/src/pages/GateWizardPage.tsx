@@ -6,21 +6,6 @@ import { ContextStrip } from '../components/ContextStrip';
 import { BoundsEditor } from '../components/BoundsEditor';
 import type { AgentProfile, AgentBoundsParams, AgentContextParams } from '@hap/core';
 
-const DEFAULT_GATE_QUESTIONS = [
-  { key: 'problem', label: 'Why', prompt: 'Why does the agent need this? What problem are you solving?' },
-  { key: 'objective', label: 'Goal', prompt: 'What should the agent achieve? What does success look like?' },
-  { key: 'tradeoffs', label: 'Risks', prompt: 'What risks are you accepting? What limits the exposure?' },
-] as const;
-
-function getGateQuestions(profile: AgentProfile | null) {
-  if (!profile?.gateQuestions) return DEFAULT_GATE_QUESTIONS;
-  return [
-    { key: 'problem', label: 'Why', prompt: profile.gateQuestions.problem?.question ?? DEFAULT_GATE_QUESTIONS[0].prompt },
-    { key: 'objective', label: 'Goal', prompt: profile.gateQuestions.objective?.question ?? DEFAULT_GATE_QUESTIONS[1].prompt },
-    { key: 'tradeoffs', label: 'Risks', prompt: profile.gateQuestions.tradeoffs?.question ?? DEFAULT_GATE_QUESTIONS[2].prompt },
-  ] as const;
-}
-
 interface AuthData {
   profileId: string;
   groupId?: string;
@@ -32,10 +17,10 @@ export function GateWizardPage() {
   const navigate = useNavigate();
   const [authData, setAuthData] = useState<AuthData | null>(null);
   const [profile, setProfile] = useState<AgentProfile | null>(null);
-  const [step, setStep] = useState(2); // 2=bounds, 3=problem, 4=objective, 5=tradeoffs
+  const [step, setStep] = useState(2); // 2=bounds, 3=intent
   const [bounds, setBounds] = useState<AgentBoundsParams | null>(null);
   const [context, setContext] = useState<AgentContextParams | null>(null);
-  const [gateContent, setGateContent] = useState({ problem: '', objective: '', tradeoffs: '' });
+  const [intent, setIntent] = useState('');
   const [loading, setLoading] = useState(true);
 
   // AI assist state
@@ -67,27 +52,21 @@ export function GateWizardPage() {
     setStep(3);
   };
 
-  const handleGateNext = () => {
-    if (step < 5) {
-      setStep(step + 1);
-      setAiResponse(null);
-    } else {
-      // Save gate content + TTL config and navigate to review
-      const ttlConfig = profile?.ttl;
-      sessionStorage.setItem('agentGate', JSON.stringify({ bounds, context, gateContent, ttlConfig }));
-      navigate('/agent/review');
-    }
+  const handleIntentNext = () => {
+    const ttlConfig = profile?.ttl;
+    // Store as { intent } for v0.4, also populate legacy fields for backward compat
+    const gateContent = { intent, problem: intent, objective: intent, tradeoffs: intent };
+    sessionStorage.setItem('agentGate', JSON.stringify({ bounds, context, gateContent, ttlConfig }));
+    navigate('/agent/review');
   };
 
   const handleAskAI = async () => {
-    const gate = step === 3 ? 'problem' : step === 4 ? 'objective' : 'tradeoffs';
-    const gateKey = gate as keyof typeof gateContent;
     setAiLoading(true);
     setAiResponse(null);
     try {
       const result = await spClient.aiAssist({
-        gate,
-        currentText: gateContent[gateKey],
+        gate: 'intent',
+        currentText: intent,
         context: authData ? {
           profileId: authData.profileId,
           bounds: boundsString || undefined,
@@ -104,10 +83,6 @@ export function GateWizardPage() {
       setAiLoading(false);
     }
   };
-
-  const gateQuestions = getGateQuestions(profile);
-  const currentGateKey = step === 3 ? 'problem' : step === 4 ? 'objective' : 'tradeoffs';
-  const currentGate = step >= 3 ? gateQuestions[step - 3] : null;
 
   if (loading || !authData || !profile) {
     return <p style={{ color: 'var(--text-tertiary)' }}>Loading...</p>;
@@ -137,25 +112,30 @@ export function GateWizardPage() {
         </div>
       )}
 
-      {/* Steps 3-5: Gate questions */}
-      {step >= 3 && step <= 5 && currentGate && (
+      {/* Step 3: Intent */}
+      {step === 3 && (
         <div className="card">
-          <h3 className="card-title" style={{ marginBottom: '0.25rem' }}>{currentGate.label}</h3>
+          <h3 className="card-title" style={{ marginBottom: '0.25rem' }}>What should your agent know?</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            {currentGate.prompt}
+            Help your agent understand your intent. Consider:
           </p>
+          <ul style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem', paddingLeft: '1.25rem', lineHeight: 1.7 }}>
+            <li><strong>Why</strong> — What's the situation? Why does this need to happen?</li>
+            <li><strong>Goal</strong> — What should the agent try to achieve?</li>
+            <li><strong>Watch out</strong> — What should the agent avoid or be careful about?</li>
+          </ul>
 
           <div className="form-group" style={{ marginBottom: '0.5rem' }}>
             <textarea
               className="form-textarea"
-              placeholder={`Describe the ${currentGate.label.toLowerCase()}...`}
-              value={gateContent[currentGateKey as keyof typeof gateContent]}
-              onChange={e => setGateContent(prev => ({ ...prev, [currentGateKey]: e.target.value }))}
-              style={{ minHeight: '140px' }}
+              placeholder="e.g. We're running a spring promotion. Process customer refunds up to $50. Don't refund orders older than 30 days. Flag anything that looks unusual."
+              value={intent}
+              onChange={e => setIntent(e.target.value)}
+              style={{ minHeight: '160px' }}
             />
           </div>
           <div className="char-counter">
-            {gateContent[currentGateKey as keyof typeof gateContent].length} / 2000
+            {intent.length} / 2000
           </div>
 
           {/* AI Assist */}
@@ -192,14 +172,14 @@ export function GateWizardPage() {
           )}
 
           <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-            <button className="btn btn-ghost" onClick={() => { setStep(step - 1); setAiResponse(null); }}>Back</button>
+            <button className="btn btn-ghost" onClick={() => { setStep(2); setAiResponse(null); }}>Back</button>
             <button
               className="btn btn-primary"
               style={{ flex: 1 }}
-              onClick={handleGateNext}
-              disabled={!gateContent[currentGateKey as keyof typeof gateContent].trim()}
+              onClick={handleIntentNext}
+              disabled={!intent.trim()}
             >
-              {step < 5 ? `Continue to ${gateQuestions[step - 2].label}` : 'Continue to Review'}
+              Continue to Review
             </button>
           </div>
         </div>

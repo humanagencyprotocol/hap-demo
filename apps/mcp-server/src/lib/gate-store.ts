@@ -1,5 +1,8 @@
 /**
- * Gate Store — durable local storage for gate content (problem/objective/tradeoffs).
+ * Gate Store — durable local storage for gate content (intent).
+ *
+ * v0.4: single `intent` field.
+ * v0.3 compat: `problem`, `objective`, `tradeoffs` still accepted and stored.
  *
  * Supports two modes:
  * - Plaintext (gates.json) — used when no vault key is set
@@ -13,9 +16,11 @@ import { dirname, join } from 'node:path';
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 export interface GateContent {
-  problem: string;
-  objective: string;
-  tradeoffs: string;
+  intent?: string;
+  // v0.3 compat
+  problem?: string;
+  objective?: string;
+  tradeoffs?: string;
 }
 
 export interface GateEntry {

@@ -1,8 +1,8 @@
 /**
  * Gate Content Hash Verification — ensures plaintext gate content matches attestation hashes.
  *
- * The SP stores only hashes. This module verifies that the plaintext content
- * pushed to the MCP server matches what was attested to.
+ * v0.4: single `intent` hash.
+ * v0.3 compat: `problem`, `objective`, `tradeoffs` hashes.
  */
 
 import { createHash } from 'node:crypto';
@@ -21,7 +21,7 @@ export function hashGateContent(text: string): string {
 
 /**
  * Verify that gate content plaintext matches the hashes in the attestation.
- * Decodes the first attestation blob and compares gate_content_hashes field by field.
+ * Supports both v0.4 (intent) and v0.3 (problem/objective/tradeoffs).
  */
 export function verifyGateContentHashes(
   content: GateContent,
@@ -33,7 +33,6 @@ export function verifyGateContentHashes(
     return { valid: false, errors: ['No attestations available to verify against'] };
   }
 
-  // Decode first attestation blob to get gate_content_hashes
   const attestation = decodeAttestationBlob(auth.attestations[0].blob);
   const expectedHashes = attestation.payload.gate_content_hashes;
 
@@ -41,14 +40,27 @@ export function verifyGateContentHashes(
     return { valid: false, errors: ['Attestation does not contain gate_content_hashes'] };
   }
 
+  // v0.4: single intent hash
+  if (expectedHashes.intent && content.intent) {
+    const actual = hashGateContent(content.intent);
+    if (actual !== expectedHashes.intent) {
+      errors.push(`Hash mismatch for "intent": expected ${expectedHashes.intent}, got ${actual}`);
+    }
+    return { valid: errors.length === 0, errors };
+  }
+
+  // v0.3 compat: three separate hashes
   for (const field of ['problem', 'objective', 'tradeoffs'] as const) {
     const expected = expectedHashes[field];
-    if (!expected) {
-      errors.push(`Attestation missing hash for "${field}"`);
+    if (!expected) continue;
+
+    const value = content[field];
+    if (!value) {
+      errors.push(`Missing content for "${field}"`);
       continue;
     }
 
-    const actual = hashGateContent(content[field]);
+    const actual = hashGateContent(value);
     if (actual !== expected) {
       errors.push(`Hash mismatch for "${field}": expected ${expected}, got ${actual}`);
     }

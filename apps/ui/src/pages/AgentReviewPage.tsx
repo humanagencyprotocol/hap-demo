@@ -11,7 +11,7 @@ import type { AgentProfile, AgentBoundsParams, AgentContextParams, AgentFramePar
 interface GateData {
   bounds: AgentBoundsParams;
   context: AgentContextParams;
-  gateContent: { problem: string; objective: string; tradeoffs: string };
+  gateContent: { intent: string; problem?: string; objective?: string; tradeoffs?: string };
   // Keep frame for backward compat with existing session storage
   frame?: AgentFrameParams;
 }
@@ -80,10 +80,8 @@ export function AgentReviewPage() {
       const boundsHash = await computeBoundsHashBrowser(gateData.bounds, profile);
       const contextHash = await computeContextHashBrowser(gateData.context, profile);
 
-      const [problemHash, objectiveHash, tradeoffsHash, ecHash] = await Promise.all([
-        hashGateContent(gateData.gateContent.problem),
-        hashGateContent(gateData.gateContent.objective),
-        hashGateContent(gateData.gateContent.tradeoffs),
+      const [intentHash, ecHash] = await Promise.all([
+        hashGateContent(gateData.gateContent.intent),
         hashGateContent(JSON.stringify({
           profile: authData.profileId,
           domain,
@@ -99,7 +97,7 @@ export function AgentReviewPage() {
         context_hash: contextHash,
         domain,
         did: user.did,
-        gate_content_hashes: { problem: problemHash, objective: objectiveHash, tradeoffs: tradeoffsHash },
+        gate_content_hashes: { intent: intentHash },
         execution_context_hash: ecHash,
         group_id: authData.groupId,
         ttl: ttlSeconds,
@@ -221,16 +219,8 @@ export function AgentReviewPage() {
 
         <div className="gate-content-block">
           <div className="gate-content-item">
-            <div className="gate-content-label">Problem</div>
-            <div className="gate-content-text">{gateData.gateContent.problem}</div>
-          </div>
-          <div className="gate-content-item">
-            <div className="gate-content-label">Objective</div>
-            <div className="gate-content-text">{gateData.gateContent.objective}</div>
-          </div>
-          <div className="gate-content-item">
-            <div className="gate-content-label">Tradeoffs</div>
-            <div className="gate-content-text">{gateData.gateContent.tradeoffs}</div>
+            <div className="gate-content-label">Intent</div>
+            <div className="gate-content-text">{gateData.gateContent.intent}</div>
           </div>
         </div>
 

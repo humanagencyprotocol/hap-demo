@@ -164,9 +164,13 @@ export function listAuthorizationsHandler(
         // Gate content
         if (auth.gateContent) {
           output.push('');
-          output.push(`  Problem: ${auth.gateContent.problem}`);
-          output.push(`  Objective: ${auth.gateContent.objective}`);
-          output.push(`  Tradeoffs: ${auth.gateContent.tradeoffs}`);
+          if (auth.gateContent.intent) {
+            output.push(`  Intent: ${auth.gateContent.intent}`);
+          } else {
+            if (auth.gateContent.problem) output.push(`  Problem: ${auth.gateContent.problem}`);
+            if (auth.gateContent.objective) output.push(`  Objective: ${auth.gateContent.objective}`);
+            if (auth.gateContent.tradeoffs) output.push(`  Tradeoffs: ${auth.gateContent.tradeoffs}`);
+          }
         }
 
         // Pending domain info
