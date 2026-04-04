@@ -3,15 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { TopNav } from '../components/TopNav';
 
-const FEATURES = [
-  { icon: '\u25A0', title: 'Runs on Your Machine', desc: 'Your gateway, your rules. Credentials stay encrypted locally. Nothing leaves without your authorization.' },
-  { icon: '\u25C9', title: 'Automatic or Review', desc: 'Routine actions execute within your bounds. High-stakes actions pause for your review.' },
-  { icon: '\u25CB', title: 'Personal or Team', desc: 'Use it solo or with your team. For critical actions, require approval from multiple members.' },
-  { icon: '\u21B7', title: 'Works With Any Agent', desc: 'Connect Claude, Cursor, or any MCP-compatible agent. One config, done.' },
-  { icon: '\u2630', title: 'Signed Receipts', desc: 'Every action produces cryptographic proof \u2014 what was done, when, under which authorization.' },
-  { icon: '\u26A0', title: 'Secure Vault', desc: 'API keys and credentials encrypted at rest. Agents never see raw secrets.' },
-];
-
 export function LoginPage() {
   const [apiKey, setApiKey] = useState('');
   const { login, isLoading, error, clearError } = useAuth();
@@ -41,19 +32,6 @@ export function LoginPage() {
             <p style={{ fontSize: '1.125rem', color: 'var(--text-secondary)', lineHeight: 1.6, marginBottom: '3rem' }}>
               The gateway runs on your machine, between your agents and the tools they use. Nothing executes without your authorization.
             </p>
-            <div style={{ display: 'grid', gap: '2rem' }}>
-              {FEATURES.map(f => (
-                <div key={f.title} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-                  <div style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.5rem', background: 'var(--accent-subtle)', color: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', flexShrink: 0 }}>
-                    {f.icon}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.25rem' }}>{f.title}</div>
-                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', lineHeight: 1.55 }}>{f.desc}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
         </div>
 
